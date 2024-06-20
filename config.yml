@@ -1,0 +1,40 @@
+database:
+  mysql:
+    host: localhost
+    password: root
+    port: 3306
+    schema: mysql
+    user: root
+  pgsql:
+    database: tianna
+    host: localhost
+    password: zl2565809
+    port: 5432
+    user: tianna
+  pool: true
+  type: pgsql
+debug: true
+redis:
+  db: 0
+  decode_responses: true
+  encoding: utf-8
+  encoding_errors: strict
+  host: localhost
+  max_connections: 0
+  password: null
+  port: 6379
+  retry_on_timeout: false
+  single_connection_client: false
+  socket_connect_timeout: null
+  socket_timeout: null
+  ssl: false
+  ssl_ca_certs: null
+  ssl_cert_reqs: null
+  ssl_certfile: null
+  ssl_keyfile: null
+routes:
+- class: MainHandler
+  name: MainHandler
+  url: /.*
+server:
+  port: 80
