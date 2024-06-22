@@ -11,11 +11,11 @@ from tools.str import str2bool, arguments_format
 from tools.database import Database
 from tools.system import log, port_check
 from tools.ende import token_handle, guid
-from tools.redis import Redis 
+from tools.redis import Redis
 logging.getLogger('tornado.access').disabled = True
 db = None
-redis=None
-#配置模板
+redis = None
+# 配置模板
 config_model = {
     "debug": False,
     "server": {
@@ -65,6 +65,8 @@ config_model = {
         }
     ]
 }
+# web.URLSpec(r'/api/member/([^/]*)', MemberRoute, name='member'),
+# (r'/static/(.*)', web.StaticFileHandler, {'path': static_path} )
 
 
 def config(path: str = None) -> dict:
@@ -82,7 +84,7 @@ def config(path: str = None) -> dict:
             f.write(yaml_data)
             log("config.yml文件不存在,创建并使用默认文件", "警告")
     else:
-        modify=False
+        modify = False
         # 如果存在配置文件，则读取配置文件
         with open(path, 'r', encoding='utf-8') as f:
             # config_dict = yaml.load(f, Loader=yaml.FullLoader)
@@ -93,7 +95,7 @@ def config(path: str = None) -> dict:
             except Exception as e:
                 modify = True
                 log("debug未设置,使用默认值False", "警告")
-                
+
             try:
                 if config_dict["server"]["port"]:
                     config_model["server"]["port"] = config_dict["server"]["port"]
@@ -251,11 +253,11 @@ def config(path: str = None) -> dict:
                 modify = True
                 log("redis>ssl_keyfile,SSL 密钥文件的路径,如果使用 SSL 加密则需要提供,使用默认值None", "警告")
             try:
-                if config_dict["redis"]["ssl_cerfile"]:
-                    config_model["redis"]["ssl_cerfile"] = config_dict["redis"]["ssl_cerfile"]
+                if config_dict["redis"]["ssl_certfile"]:
+                    config_model["redis"]["ssl_certfile"] = config_dict["redis"]["ssl_certfile"]
             except Exception as e:
                 modify = True
-                log("redis>ssl_cerfile,SSL 证书文件的路径,如果使用 SSL 加密则需要提供,使用默认值None", "警告")
+                log("redis>ssl_certfile,SSL 证书文件的路径,如果使用 SSL 加密则需要提供,使用默认值None", "警告")
             try:
                 if config_dict["redis"]["ssl_cert_reqs"]:
                     config_model["redis"]["ssl_cert_reqs"] = config_dict["redis"]["ssl_cert_reqs"]
@@ -274,19 +276,14 @@ def config(path: str = None) -> dict:
             except Exception as e:
                 modify = True
                 log("redis>single_connection_client,是否使用单个连接,使用默认值False", "警告")
-            try:
-                if config_dict["redis"]["pool"]:
-                    config_model["redis"]["pool"] = config_dict["redis"]["pool"]
-            except Exception as e:
-                modify = True
-                log("redis>pool,是否使用连接池,使用默认值False", "警告")
-            
+
             if modify:
                 yaml_data = yaml.dump(config_model, default_flow_style=False)
                 with open(path, 'w') as f:
                     f.write(yaml_data)
                     log("更新配置文件", "警告")
     return config_model
+
 
 def signal_handler(signum, frame):
     # 处理信号,当按下Ctrl+C时,停止事件循环
@@ -312,10 +309,10 @@ class MainHandler(web.RequestHandler):
         self.set_header("Access-Control-Max-Age", "3600")
 
     # 初始化
-    def initialize(self) -> None:
-        # global db
+    def initialize(self, **kwargs) -> None:
         # 用户进入
-        self.db = db
+        self.db = kwargs.get("db", None)
+        self.redis = kwargs.get("redis", None)
         self.debug = config_model["debug"]
         self.token_handle = token_handle
         self.guid = guid
@@ -496,14 +493,17 @@ def app(routes: list[dict] = config_model["routes"]):
     url_specs = []
     # 遍历路由列表
     for route in routes:
-        # 获取路由信息
-        handler_url = route.get("url", None)
-        if not handler_url:
-            continue
         # 获取路由字符串
         class_str = route.get("class", None)
         if not class_str:
             continue
+
+        # 获取路由信息
+        handler_url = route.get("url", None)
+        if not handler_url:
+            if "Handler" not in class_str:
+                continue
+            handler_url = "/"+class_str.replace("Handler", "").lower()+"/([^/]*)"
         try:
             # 将路由字符串转换为类
             handler_class = globals()[class_str]
@@ -513,10 +513,10 @@ def app(routes: list[dict] = config_model["routes"]):
         handler_name = route.get("name", class_str)
         # 添加路由到列表
         url_specs.append(web.URLSpec(
-            handler_url, handler_class, name=handler_name))
+            handler_url, handler_class, {"name": handler_name, "db": db, "redis": redis}))
     if not url_specs:
         # 如果路由列表为空，则使用默认路由
-        return app()
+        return app(db=db, redis=redis)
         # 添加路由
     return web.Application(url_specs)
 
@@ -529,38 +529,30 @@ if __name__ == "__main__":
     if not port_check(port):
         log(f"{port}端口被占用，启动失败", "错误")
         exit()
-
-    routes = [
-        {
-            "url": "",
-            "name": "member",
-            "class": "Test"
-        }
-    ]
+    routes = config_model["routes"]
     # 初始化应用
     app = app(routes)
-    #监听服务端口
+    # 监听服务端口
     app.listen(port)
     # 获取io循环
     loop = ioloop.IOLoop.current()
-    #连接redis
+    # 连接redis
     redis = Redis(**config_model["redis"])
-    #获取数据库类型
+    # 获取数据库类型
     database_type = config_model["database"]["type"]
-    #数据库类型是否存在
+    # 数据库类型是否存在
     if database_type:
-        #使用使用连接池
+        # 使用使用连接池
         if config_model["database"]["pool"]:
-            #将外部连接池开关赋值给内部
+            # 将外部连接池开关赋值给内部
             config_model["database"][database_type]["pool"] = config_model["database"]["pool"]
             # #将当前IO循环赋值给数据库配置
             # config_model["database"][database_type]["loop"] = loop
-        #将外部debug开关赋值给数据库debug
+        # 将外部debug开关赋值给数据库debug
         config_model["database"][database_type]["debug"] = config_model["debug"]
-        #连接数据库
+        # 连接数据库
         db = Database(**config_model["database"]
                       [database_type])
-    
 
         log(f"http://localhost:{port}")
     loop.start()

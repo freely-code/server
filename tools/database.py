@@ -250,6 +250,12 @@ class Database:
         """
         # 赋值参数
         self.kwargs = kwargs_check(kwargs)
+
+        #检查密码是否为整数
+        password = self.kwargs.get("password", None)
+        if isinstance(password, int):
+            self.kwargs["password"] = str(password)
+
         # 设置参数默认值
         self.conn = None
         self.debug = self.kwargs.pop("debug")
@@ -1068,7 +1074,7 @@ class Database:
                     finally:  # 最终
                         if not self.conn:
                             # 没有事务,关闭连接
-                            await conn.close()
+                            conn.close()
 
         else:  # pgsql处理
             # 判断是否为查询语句,或者是否需要返回ID,如果是则走fetch,否则走execute

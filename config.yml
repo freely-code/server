@@ -33,6 +33,9 @@ redis:
   ssl_certfile: null
   ssl_keyfile: null
 routes:
+- class: test
+  name: test
+  url: /test
 - class: MainHandler
   name: MainHandler
   url: /.*

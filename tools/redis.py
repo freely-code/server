@@ -12,6 +12,10 @@ class Redis:
         """
         self.pipe = None
         self.kwargs = kwargs
+        #检查密码是否为整数
+        password = self.kwargs.get("password", None)
+        if isinstance(password, int):
+            self.kwargs["password"] = str(password)
 
         del self.kwargs["single_connection_client"]
         if not self.kwargs.get("ssl", None):
