@@ -3,7 +3,7 @@ database:
     host: localhost
     password: root
     port: 3306
-    schema: mysql
+    db: mysql
     user: root
   pgsql:
     database: tianna

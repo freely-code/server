@@ -103,7 +103,7 @@ def kwargs_check(kwargs: dict)->dict:
         # 最大连接池
         obj["maxsize"] = kwargs.pop("max_size", 10)
         # 数据库名
-        obj["db"] = kwargs.pop("schema", "mysql")
+        obj["db"] = kwargs.get("db", "mysql")
         # 数据库字符
         obj["charset"] = kwargs.get("charset", "utf8mb4")
         # 连接超时
@@ -261,11 +261,13 @@ class Database:
         self.debug = self.kwargs.pop("debug")
         self.genre = self.kwargs.pop("genre")
         self.pool = self.kwargs.pop("pool")
-        self.schema = self.kwargs.get("db", self.kwargs.get("schema", None))
-        self.database = self.kwargs.get("database", "postfres")
+       
+        self.database = self.kwargs.get("database", "postgres")
         if self.genre == "mysql":
-            pass
+            self.schema = self.kwargs.get("db", "mysql")
+
         else:
+            self.schema =self.kwargs.get("schema", None)
             self.fields_default = {
                 "名称": "",
                 "主键": False,

@@ -1,4 +1,6 @@
 #加解密文件
+import uuid
+import time,jwt
 
 def token_handle(user_info={}, token="", expire=604800):
     """

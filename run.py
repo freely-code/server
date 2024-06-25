@@ -54,7 +54,7 @@ config_model = {
             "host": "localhost",
             "port": 3306,
             "user": "root",
-            "schema": "mysql",
+            "db": "mysql",
             "password": "root",
         }
     }, "routes": [
@@ -155,25 +155,31 @@ def config(path: str = None) -> dict:
                     config_model["database"]["mysql"]["port"] = config_dict["database"]["mysql"]["port"]
             except Exception as e:
                 modify = True
-                log("database>mysql>port,使用默认值5432", "警告")
+                log("database>mysql>port,使用默认值3306", "警告")
             try:
                 if config_dict["database"]["mysql"]["user"]:
                     config_model["database"]["mysql"]["user"] = config_dict["database"]["mysql"]["user"]
             except Exception as e:
                 modify = True
-                log("database>mysql>user,使用默认值postgres", "警告")
+                log("database>mysql>user,使用默认值root", "警告")
             try:
                 if config_dict["database"]["mysql"]["password"]:
                     config_model["database"]["mysql"]["password"] = config_dict["database"]["mysql"]["password"]
             except Exception as e:
                 modify = True
-                log("database>mysql>password,使用默认值postgres", "警告")
+                log("database>mysql>password,使用默认值root", "警告")
             try:
                 if config_dict["routes"]:
                     config_model["routes"] = config_dict["routes"]
             except Exception as e:
                 modify = True
                 log("routes,使用默认值/", "警告")
+            try:
+                if config_dict["database"]["mysql"]["db"]:
+                    config_model["database"]["mysql"]["db"] = config_dict["database"]["mysql"]["db"]
+            except Exception as e:
+                modify = True
+                log("database>mysql>db,使用默认值mysql", "警告")
             try:
                 if config_dict["redis"]["host"]:
                     config_model["redis"]["host"] = config_dict["redis"]["host"]
