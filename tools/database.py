@@ -28,7 +28,6 @@ def record2json(rows: dict):
     """
 
     # 将记录转换为字典列表
-    print([dict(row) for row in rows])
     return [dict(row) for row in rows]
 
     # # 遍历字典
@@ -46,7 +45,7 @@ def record2json(rows: dict):
     #                 # 转换为json格式
 
 
-def kwargs_check(kwargs: dict)->dict:
+def kwargs_check(kwargs: dict) -> dict:
     """检查参数
     将mysql的参数键与pgsql的参数键进行统一,并且设置默认值
 
@@ -245,13 +244,13 @@ def filter_process(genre: str = "pgsql", sql: str = "", group: str = None, order
 
 
 class Database:
-    def __init__(self, **kwargs)->None:
+    def __init__(self, **kwargs) -> None:
         """初始化
         """
         # 赋值参数
         self.kwargs = kwargs_check(kwargs)
 
-        #检查密码是否为整数
+        # 检查密码是否为整数
         password = self.kwargs.get("password", None)
         if isinstance(password, int):
             self.kwargs["password"] = str(password)
@@ -261,21 +260,22 @@ class Database:
         self.debug = self.kwargs.pop("debug")
         self.genre = self.kwargs.pop("genre")
         self.pool = self.kwargs.pop("pool")
-       
+
         self.database = self.kwargs.get("database", "postgres")
         if self.genre == "mysql":
             self.schema = self.kwargs.get("db", "mysql")
 
         else:
-            self.schema =self.kwargs.get("schema", None)
+            self.schema = self.kwargs.get("schema", None)
             self.fields_default = {
-                "名称": "",
-                "主键": False,
-                "类型": "",
-                "备注": "",
-                "默认值": "",
-                "为空": False,
-                "长度": ""
+                "name": "",
+                "key": False,
+                "type": "",
+                "remark": "",
+                "default": "",
+                "null": False,
+                "length": "",
+                "index": ""
             }
         if self.pool:
             self.transaction = None
@@ -760,6 +760,15 @@ class Database:
             sql = "SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN('pg_toast','pg_catalog','information_schema')"
         return self.execute(sql=sql, result=result)
 
+    def schema_get_now(self, result: dict = {}) -> bool:
+        """获取当前架构_同步
+        """
+        if self.genre == "mysql":
+            pass
+        else:
+            sql = "SHOW search_path"
+        return self.execute(sql=sql, result=result)
+
     def schema_create(self, schema: str, result: dict = {}) -> bool:
         """创建架构_同步
         """
@@ -793,22 +802,32 @@ class Database:
             pass
         else:
             temp = ""
+            index = ""
             remark = ""
-            for field in fields:
-                field_name = field.get("名称", "")
-                field_type = field.get("类型", None)
-                field_remark = field.get("备注", "")
-                field_key = field.get("主键", False)
-                field_default = field.get("默认值", "")
-                field_length = field.get("长度", None)
-                field_null = field.get("为空", False)
+            update_time = ""
+            for field in fields:  # 获取字段名，如果没有则默认为空
+                field_name = field.get("name", "")
+# 获取字段类型，如果没有则默认为None
+                field_type = field.get("type", None)
+# 获取字段注释，如果没有则默认为空
+                field_remark = field.get("remark", "")
+# 获取字段是否为键，如果没有则默认为False
+                field_key = field.get("key", False)
+# 获取字段默认值，如果没有则默认为空
+                field_default = field.get("default", "")
+# 获取字段长度，如果没有则默认为None
+                field_length = field.get("length", None)
+                field_null = field.get("null", False)  # 是否为空
+                # 索引类型  UNIQUE唯一索引 INDEX普通索引 None不用索引
+                field_index = field.get("index", None)
                 if not field_name:
-                    result["error"] = "字段名称不能为空"
+                    result["error"] = "name字段不能为空"
                     return False
+                if field_name == "update_time":
+                    field_type = "timestamp"
+                    field_default = "now()"
+                    update_time = f"create or replace function update_time() returns trigger as $$ begin new.{field_name} = current_timestamp; return new; end $$ language plpgsql; create trigger update_time_{schema}_{table_name}_{field_name} before update on {schema}.{table_name} for each row execute procedure update_time();"
                 temp += f",{field_name} {field_type}"
-                if field_key:
-                    temp += " PRIMARY KEY"
-                    continue
                 if not field_length:
                     if field_type == "smallint":
                         field_length = "1"
@@ -820,21 +839,48 @@ class Database:
                         field_length = "255"
                     elif field_type in ["character", "char"]:
                         field_length = "16"
+                    elif field_type in "timestamp":
+                        field_length = "0"
                     else:
                         field_length = ""
                 if field_length:
                     temp += f"({field_length})"
+                if field_key:
+                    temp += " PRIMARY KEY"
+
                 temp += " NULL" if field_null else " NOT NULL"
                 if field_default:
                     temp += f" DEFAULT {field_default}"
+                else:
+                    if field_type in ["smallint", "integer", "bigint"]:
+                        field_default = "0"
+                    elif field_type in ["varying", "varchar"]:
+                        field_default = "''::character varying"
+                    elif field_type in ["character", "char"]:
+                        field_default = "''::bpchar"
+                    elif field_type in "timestamp":
+                        field_default = "'0000-00-00 00:00:00'::timestamp without time zone"
+                    else:
+                        pass
+                    if field_default:
+                        temp += f" DEFAULT {field_default}"
                 if field_remark:
                     remark += f"COMMENT ON COLUMN {schema}.{table_name}.{field_name} IS '{field_remark}';"
+                if not field_key and field_index:
+                    if field_index == "UNIQUE":
+                        temp += " UNIQUE"
+                    elif field_index == "INDEX":
+                        index += f"CREATE INDEX {field_name} ON {schema}.{table_name} ({field_name});"
 
-            sql = f"CREATE TABLE {table_name} ({temp[1:]});"
+            sql = f"CREATE TABLE {schema}.{table_name} ({temp[1:]});"
             if table_remark:
                 sql += f"COMMENT ON TABLE {schema}.{table_name} IS '{table_remark}';"
             if remark:
                 sql += remark
+            if index:
+                sql += index
+            if update_time:
+                sql += update_time
         return self.execute(sql=sql, result=result)
 
     def table_rename(self, old_name: str, new_name: str = None, schema: str = None, result: dict = {}) -> bool:
@@ -865,7 +911,7 @@ class Database:
             sql = f"CREATE TABLE {new_schema}.{new_table} AS SELECT * FROM {old_schema}.{old_table}"
         return self.execute(sql=sql, result=result)
 
-    def tables_get(self, result: dict = {}, schema: str = None) -> bool:
+    def tables_get(self, schema: str = None, table_name: str = None, result: dict = {}) -> bool:
         """获取表名_同步
         """
         if not schema:
@@ -873,7 +919,10 @@ class Database:
         if self.genre == "mysql":
             pass
         else:
-            sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
+            if table_name:
+                sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}' AND table_name = '{table_name}'"
+            else:
+                sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
         return self.execute(sql=sql, result=result)
 
     def fields_get(self, table: str = None, schema: str = None,  result: dict = {}) -> bool:
@@ -887,7 +936,7 @@ class Database:
             sql = f"SELECT \"column_name\" FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
         return self.execute(sql=sql, result=result)
 
-    def fun_uid_create(self, fun_name: str = "get_uid", schema: str = "public", result: dict = {}) -> bool:
+    def fun_uuid_create(self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}) -> bool:
         """创建uid函数_同步
         """
         if not schema:
@@ -898,7 +947,7 @@ class Database:
             sql = f"CREATE OR REPLACE FUNCTION {schema}.{fun_name}() RETURNS character LANGUAGE plpgsql AS $BODY$ BEGIN RETURN SUBSTRING(REPLACE(gen_random_uuid()::varchar, '-' ,'' ), 8, 16); END; $BODY$;"
         return self.execute(sql=sql, result=result)
 
-    def fun_uid_drop(self, fun_name: str = "get_uid", schema: str = "public", result: dict = {}) -> bool:
+    def fun_uuid_drop(self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}) -> bool:
         """删除uid函数_同步
         """
         if not schema:
@@ -909,8 +958,33 @@ class Database:
             sql = f"DROP FUNCTION {fun_name}();"
         return self.execute(sql=sql, result=result)
 
-# ====异步====
+    def funs_get(self, fun_name: str = None, schema: str = None, result: dict = {}) -> bool:
+        """函数列表获取_同步
+        """
+        if not schema:
+            schema = self.schema
+        if self.genre == "mysql":
+            pass
+        else:
+            if fun_name:
+                sql = f"SELECT routine_name FROM information_schema.routines WHERE routine_schema = '{schema}' AND routine_name = '{fun_name}'"
+            else:
+                sql = f"SELECT routine_name FROM information_schema.routines WHERE routine_schema = '{schema}'"
 
+        return self.execute(sql=sql, result=result)
+
+    def index_create_async(self, table_name: str, field_name: str, schema: str = None, result: dict = {}) -> bool:
+        """创建索引_同步
+        """
+        if not schema:
+            schema = self.schema
+        if self.genre == "mysql":
+            pass
+        else:
+            sql = f"CREATE INDEX {field_name} ON {schema}.{table_name} ({field_name});"
+        return self.execute(sql=sql, result=result)
+
+# ====异步====
 
     async def connect_async(self) -> None:
         """连接数据库_异步
@@ -1390,7 +1464,16 @@ class Database:
             temp = f"= '{schema}'" if schema else "NOT IN('pg_toast','pg_catalog','information_schema')"
             sql = f"SELECT schema_name FROM information_schema.schemata WHERE \"schema_name\" {temp}"
         return await self.execute_async(sql=sql, result=result)
-    
+
+    async def schema_get_now_async(self, result: dict = {}) -> bool:
+        """获取当前架构_异步
+        """
+        if self.genre == "mysql":
+            pass
+        else:
+            sql = "SHOW search_path"
+        return self.execute_async(sql=sql, result=result)
+
     async def table_create_async(self,  table_name: str, fields: list, table_remark: str = None, schema: str = None, result: dict = {}) -> bool:
         """创建表_异步
         """
@@ -1400,22 +1483,32 @@ class Database:
             pass
         else:
             temp = ""
-            remark=""
-            for field in fields:
-                field_name = field.get("名称", "")
-                field_type = field.get("类型", None)
-                field_remark = field.get("备注", "")
-                field_key = field.get("主键", False)
-                field_default = field.get("默认值", "")
-                field_length = field.get("长度", None)
-                field_null = field.get("为空", False)
+            index = ""
+            remark = ""
+            update_time = ""
+            for field in fields:  # 获取字段名，如果没有则默认为空
+                field_name = field.get("name", "")
+# 获取字段类型，如果没有则默认为None
+                field_type = field.get("type", None)
+# 获取字段注释，如果没有则默认为空
+                field_remark = field.get("remark", "")
+# 获取字段是否为键，如果没有则默认为False
+                field_key = field.get("key", False)
+# 获取字段默认值，如果没有则默认为空
+                field_default = field.get("default", "")
+# 获取字段长度，如果没有则默认为None
+                field_length = field.get("length", None)
+                field_null = field.get("null", False)  # 是否为空
+                # 索引类型  UNIQUE唯一索引 INDEX普通索引 None不用索引
+                field_index = field.get("index", None)
                 if not field_name:
-                    result["error"] = "字段名称不能为空"
+                    result["error"] = "name字段不能为空"
                     return False
+                if field_name == "update_time":
+                    field_type = "timestamp"
+                    field_default = "now()"
+                    update_time = f"create or replace function update_time() returns trigger as $$ begin new.{field_name} = current_timestamp; return new; end $$ language plpgsql; create trigger update_time_{schema}_{table_name}_{field_name} before update on {schema}.{table_name} for each row execute procedure update_time();"
                 temp += f",{field_name} {field_type}"
-                if field_key:
-                    temp += " PRIMARY KEY"
-                    continue
                 if not field_length:
                     if field_type == "smallint":
                         field_length = "1"
@@ -1427,21 +1520,49 @@ class Database:
                         field_length = "255"
                     elif field_type in ["character", "char"]:
                         field_length = "16"
+                    elif field_type in "timestamp":
+                        field_length = "0"
                     else:
                         field_length = ""
                 if field_length:
-                    temp +=  f"({field_length})"
+                    temp += f"({field_length})"
+                if field_key:
+                    temp += " PRIMARY KEY"
+
                 temp += " NULL" if field_null else " NOT NULL"
                 if field_default:
                     temp += f" DEFAULT {field_default}"
+                else:
+                    if field_type in ["smallint", "integer", "bigint"]:
+                        field_default = "0"
+                    elif field_type in ["varying", "varchar"]:
+                        field_default = "''::character varying"
+                    elif field_type in ["character", "char"]:
+                        field_default = "''::bpchar"
+                    elif field_type in "timestamp":
+                        field_default = "'0000-00-00 00:00:00'::timestamp without time zone"
+                    else:
+                        pass
+                    if field_default:
+                        temp += f" DEFAULT {field_default}"
                 if field_remark:
                     remark += f"COMMENT ON COLUMN {schema}.{table_name}.{field_name} IS '{field_remark}';"
+                if not field_key and field_index:
+                    if field_index == "UNIQUE":
+                        temp += " UNIQUE"
+                    elif field_index == "INDEX":
+                        index += f"CREATE INDEX {field_name} ON {schema}.{table_name} ({field_name});"
 
-            sql = f"CREATE TABLE {table_name} ({temp[1:]});"
+            sql = f"CREATE TABLE {schema}.{table_name} ({temp[1:]});"
             if table_remark:
                 sql += f"COMMENT ON TABLE {schema}.{table_name} IS '{table_remark}';"
             if remark:
                 sql += remark
+            if index:
+                sql += index
+            if update_time:
+                sql += update_time
+
         return await self.execute_async(sql=sql, result=result)
 
     async def table_rename_async(self, old_name: str, new_name: str = None, schema: str = None, result: dict = {}) -> bool:
@@ -1452,7 +1573,8 @@ class Database:
             schema = self.schema
         sql = f"ALTER TABLE {schema}.{old_name} RENAME TO 1{new_name}"
         return await self.execute_async(sql=sql, result=result)
-    async def tables_get_async(self, schema: str = None, result: dict = {}) -> bool:
+
+    async def tables_get_async(self, schema: str = None, table_name: str = None, result: dict = {}) -> bool:
         """获取表名_异步
         """
         if not schema:
@@ -1460,7 +1582,10 @@ class Database:
         if self.genre == "mysql":
             pass
         else:
-            sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
+            if table_name:
+                sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}' AND table_name = '{table_name}'"
+            else:
+                sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
         return await self.execute_async(sql=sql, result=result)
 
     async def table_copy_async(self, old_table: str, old_schema: str = None, new_table: str = None, new_schema: str = None,  result: dict = {}) -> bool:
@@ -1494,7 +1619,7 @@ class Database:
 
         # 创建一个新的函数来创建模式
 
-    async def fun_uid_create_async(self, fun_name: str = "get_uid", schema: str = "public", result: dict = {}) -> bool:
+    async def fun_uuid_create_async(self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}) -> bool:
         """创建uid函数_异步
         """
         if not schema:
@@ -1505,7 +1630,7 @@ class Database:
             sql = f"CREATE OR REPLACE FUNCTION {schema}.{fun_name}() RETURNS character LANGUAGE plpgsql AS $BODY$ BEGIN RETURN SUBSTRING(REPLACE(gen_random_uuid()::varchar, '-' ,'' ), 8, 16); END; $BODY$;"
         return await self.execute_async(sql=sql, result=result)
 
-    async def fun_uid_drop_async(self, fun_name: str = "get_uid", schema: str = "public", result: dict = {}) -> bool:
+    async def fun_uuid_drop_async(self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}) -> bool:
         """删除uid函数_异步
         """
         if not schema:
@@ -1516,8 +1641,31 @@ class Database:
             sql = f"DROP FUNCTION {fun_name}();"
         return await self.execute_async(sql=sql, result=result)
 
+    async def funs_get_async(self, fun_name: str = None, schema: str = None, result: dict = {}) -> bool:
+        """函数列表获取_异步
+        """
+        if not schema:
+            schema = self.schema
+        if self.genre == "mysql":
+            pass
+        else:
+            if fun_name:
+                sql = f"SELECT routine_name FROM information_schema.routines WHERE routine_schema = '{schema}' AND routine_name = '{fun_name}'"
+            else:
+                sql = f"SELECT routine_name FROM information_schema.routines WHERE routine_schema = '{schema}'"
 
+        return await self.execute_async(sql=sql, result=result)
 
+    async def index_create_async(self, table_name: str, field_name: str, schema: str = None, result: dict = {}) -> bool:
+        """创建索引_异步
+        """
+        if not schema:
+            schema = self.schema
+        if self.genre == "mysql":
+            pass
+        else:
+            sql = f"CREATE INDEX {field_name} ON {schema}.{table_name} ({field_name});"
+        return await self.execute_async(sql=sql, result=result)
 
 
 async def main():

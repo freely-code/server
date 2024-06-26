@@ -494,7 +494,7 @@ class MainHandler(web.RequestHandler):
         self.finish()
 
 
-def app(routes: list[dict] = config_model["routes"]):
+def app(routes: list[dict] = config_model["routes"], db: Database = None, redis: Redis = None):
     # 初始化应用
     url_specs = []
     # 遍历路由列表
@@ -509,7 +509,8 @@ def app(routes: list[dict] = config_model["routes"]):
         if not handler_url:
             if "Handler" not in class_str:
                 continue
-            handler_url = "/"+class_str.replace("Handler", "").lower()+"/([^/]*)"
+            handler_url = "/" + \
+                class_str.replace("Handler", "").lower()+"/([^/]*)"
         try:
             # 将路由字符串转换为类
             handler_class = globals()[class_str]
@@ -536,10 +537,7 @@ if __name__ == "__main__":
         log(f"{port}端口被占用，启动失败", "错误")
         exit()
     routes = config_model["routes"]
-    # 初始化应用
-    app = app(routes)
-    # 监听服务端口
-    app.listen(port)
+
     # 获取io循环
     loop = ioloop.IOLoop.current()
     # 连接redis
@@ -560,5 +558,9 @@ if __name__ == "__main__":
         db = Database(**config_model["database"]
                       [database_type])
 
+        # 初始化应用
+        app = app(routes, db, redis)
+        # 监听服务端口
+        app.listen(port)
         log(f"http://localhost:{port}")
     loop.start()
