@@ -13,6 +13,7 @@ import aiomysql
 import psycopg2
 import asyncpg
 import warnings
+import datetime
 
 from tools.times import datetime2str
 
@@ -29,20 +30,6 @@ def record2json(rows: dict):
 
     # 将记录转换为字典列表
     return [dict(row) for row in rows]
-
-    # # 遍历字典
-    # for key, value in record.items():
-    #     # 判断是否为字典
-    #     if isinstance(value, dict):
-    #         # 转换为json格式
-    #         record[key] = json.dumps(value)
-    #     # 判断是否为列表
-    #     elif isinstance(value, list):
-    #         # 遍历列表
-    #         for i in range(len(value)):
-    #             # 判断是否为字典
-    #             if isinstance(value[i], dict):
-    #                 # 转换为json格式
 
 
 def kwargs_check(kwargs: dict) -> dict:
@@ -122,13 +109,19 @@ def kwargs_check(kwargs: dict) -> dict:
     return obj
 
 
-def datetime_to_str(field: list, data: list) -> list:
+def datetime_to_str(data: list, fields: list = None) -> list:
     """将datetime类型转换为字符串
     """
     keys = []
-    for key in field:
-        if key[1] == 7 or key[1] == 12:
-            keys.append(key[0])
+    if fields:
+        for key in fields:
+            if key[1] == 7 or key[1] == 12:
+                keys.append(key[0])
+    else:
+        for key in data[0].keys():
+            if isinstance(data[0][key], datetime.datetime):
+                # if type(data[0][key]) == datetime:
+                keys.append(key)
 
     for index, item in enumerate(data):
         for key in keys:
@@ -177,38 +170,38 @@ def table_name_process(table_name, schema, self_schema) -> str:
         return table_name
 
 
-def condition_process(condition: str) -> str:
+def where_process(where: str) -> str:
     """条件处理
-
+    
     Args:
-        condition (_type_): 条件
+        where (_type_): 条件
 
     Returns:
         _type_: 返回处理后的条件
     """
-    if not condition:
-        condition = ""
+    if not where:
+        where = ""
         return ""
 
     # 去除左边空字符
-    condition.lstrip()
+    where.lstrip()
     # 判断开头是否为AND
-    if condition.upper().startswith("AND"):
+    if where.upper().startswith("AND"):
         # 将AND替换成功WHERE
-        condition = condition.replace(
+        where = where.replace(
             "AND", "WHERE", 1)
-        return f" {condition} "
+        return f" {where} "
 
     # 如果开头不为AND,判断是否为OR
-    if condition.upper().startswith("OR"):
+    if where.upper().startswith("OR"):
         # 将OR替换为WHERE
-        condition = condition.replace(
+        where = where.replace(
             "OR", "WHERE", 1)
-        return f" {condition} "
+        return f" {where} "
 
     # 如果没有AND和OR,就在条件前面加上WHERE
-    condition = f" WHERE {condition} "
-    return condition
+    where = f" WHERE {where} "
+    return where
 
 
 def filter_process(genre: str = "pgsql", sql: str = "", group: str = None, order: str = None, limit: str = None) -> str:
@@ -507,7 +500,7 @@ class Database:
 
             if len(data) > 0:
                 if self.genre == "mysql":  # mysql处理
-                    data = datetime_to_str(field=cursor.description, data=data)
+                    data = datetime_to_str(data=data, field=cursor.description)
                 result["data"] = data
                 # field = []
                 # field = [i[0] for i in cursor.description]
@@ -558,7 +551,7 @@ class Database:
         # 执行并返回
         return self.execute(sql=sql, result=result)
 
-    def insert(self, table: str, key: str = None, value: str = None, json_data: dict | list = None, schema=None, index: str = None, result: dict = {}) -> bool:
+    def insert(self, table_name: str, key: str = None, value: str = None, json_data: dict | list = None, schema=None, index: str = None, result: dict = {}) -> bool:
         """插入_同步
         Args:
             table (str): 表名
@@ -622,7 +615,7 @@ class Database:
             key = ",".join(tem_list)
 
         # 处理表名
-        table_name = table_name_process(table, schema, self.schema)
+        table_name = table_name_process(table_name, schema, self.schema)
 
         # 拼接语句
         if self.genre == "mysql":
@@ -633,12 +626,12 @@ class Database:
 
         return self.execute(sql=sql,  result=result)
 
-    def delete(self, table: str, condition: str = None, schema: str = None, result: dict = {}) -> bool:
+    def delete(self, table_name: str, where: str = None, schema: str = None, result: dict = {}) -> bool:
         """删除_同步
 
         Args:
             table (str): 表名
-            condition (str): 条件,不填则会清空表
+            where (str): 条件,不填则会清空表
             schema (str, optional): 在mysql中这个参数代表数据库,在pgsql中代表架构. Defaults to None.
             result (dict, optional): 返回对象,包含了数据/错误信息/语句等. Defaults to {}.
 
@@ -646,24 +639,24 @@ class Database:
             bool: 成功|true 失败|false
         """
         # 如果没有条件,则直接清空
-        if not condition:
-            return self.truncate(table=table, schema=schema, result=result)
+        if not where:
+            return self.truncate(table=table_name, schema=schema, result=result)
 
         # 处理条件
-        condition = condition_process(condition)
+        where = where_process(where)
 
         # 处理表名
-        table_name = table_name_process(table, schema, self.schema)
+        table_name = table_name_process(table_name, schema, self.schema)
         # 拼接语句
-        sql = f"DELETE FROM {table_name}{condition}"
+        sql = f"DELETE FROM {table_name}{where}"
         return self.execute(sql=sql,  result=result)
 
-    def update(self, table: str, condition: str = None, kv: str = None, json_data: dict | list = None, schema: str = None, index: str = None, result: dict = {}) -> bool:
+    def update(self, table_name: str, where: str = None, kv: str = None, json_data: dict | list = None, schema: str = None, index: str = None, result: dict = {}) -> bool:
         """更新_同步
 
         Args:
             table (str): 表名
-            condition (str, optional):条件. Defaults to None.
+            where (str, optional):条件. Defaults to None.
             kv (str, optional): 原参数 a=b,c=d. Defaults to None.
             json_data (dict, optional): 对象参数,如果该参数不为空,kv将失效. Defaults to None.
             schema (str, optional): mysql中为库名,pgsql中为架构. Defaults to None.
@@ -683,22 +676,22 @@ class Database:
             kv = kv[1:]
 
         # 处理条件
-        condition = condition_process(condition)
+        where = where_process(where)
         # 处理表名
-        table_name = table_name_process(table, schema, self.schema)
+        table_name = table_name_process(table_name, schema, self.schema)
         # 拼接语句
-        sql = f"UPDATE {table_name} SET {kv}{condition}"
+        sql = f"UPDATE {table_name} SET {kv}{where}"
         if self.genre == "pgsql":
             sql += f" ON CONFLICT DO NOTHING" + \
                 f" RETURNING {index}" if index else ""
         return self.execute(sql=sql, result=result)
 
-    def select(self, table: str, condition: str = None, json_data: dict | list = None, field: str = "*", limit: str = None, order: str = None, group: str = None, schema: str = None, result: dict = {}) -> bool:
+    def select(self, table_name: str, where: str = None, json_data: dict | list = None, field: str = "*", limit: str = None, order: str = None, group: str = None, schema: str = None, result: dict = {}) -> bool:
         """查询_同步
 
         Args:
             table (str): 表名
-            condition (str, optional): 条件,json_data不为空时,格式为这样 user_id=`user_id` AND create_time>=`create_time`. Defaults to None.
+            where (str, optional): 条件,json_data不为空时,格式为这样 user_id=`user_id` AND create_time>=`create_time`. Defaults to None.
             json_data (dict, optional): 对象参数. Defaults to None.
             field (str, optional): 字段. Defaults to "*".
             limit (str, optional): 条数. Defaults to None.
@@ -711,12 +704,12 @@ class Database:
             bool: _description_
         """
         # 处理条件
-        condition = condition_process(condition)
+        where = where_process(where)
         # 处理表名
-        table_name = table_name_process(table, schema, self.schema)
+        table_name = table_name_process(table_name, schema, self.schema)
         # 处理过滤
         sql = filter_process(
-            genre=self.genre, sql=f"SELECT {field} FROM {table_name}{condition}", group=group, order=order, limit=limit)
+            genre=self.genre, sql=f"SELECT {field} FROM {table_name}{where}", group=group, order=order, limit=limit)
 
         # 如果对象数据不为空,那么就自动替换条件里的参数
         if json_data:
@@ -725,7 +718,7 @@ class Database:
 
         return self.execute(sql=sql,  result=result)
 
-    def truncate(self, table: str, schema: str = None, result: dict = {}) -> bool:
+    def truncate(self, table_name: str, schema: str = None, result: dict = {}) -> bool:
         """清空_同步
 
         Args:
@@ -736,7 +729,7 @@ class Database:
             bool: _description_
         """
         # 处理表名
-        table_name = table_name_process(table, schema, self.schema)
+        table_name = table_name_process(table_name, schema, self.schema)
         return self.execute(sql=f"TRUNCATE TABLE {table_name}", result=result)
 
     def database_get(self, result: dict = {}) -> bool:
@@ -829,20 +822,17 @@ class Database:
                     update_time = f"create or replace function update_time() returns trigger as $$ begin new.{field_name} = current_timestamp; return new; end $$ language plpgsql; create trigger update_time_{schema}_{table_name}_{field_name} before update on {schema}.{table_name} for each row execute procedure update_time();"
                 temp += f",{field_name} {field_type}"
                 if not field_length:
-                    if field_type == "smallint":
-                        field_length = "1"
-                    elif field_type == "integer":
-                        field_length = "10"
-                    elif field_type == "bigint":
-                        field_length = "19"
-                    elif field_type in ["varying", "varchar"]:
+                    if field_type in ["varying", "varchar"]:
                         field_length = "255"
                     elif field_type in ["character", "char"]:
                         field_length = "16"
-                    elif field_type in "timestamp":
+                    elif field_type == "timestamp":
                         field_length = "0"
                     else:
                         field_length = ""
+                elif field_type in ["inet", "serial", "bigserial"]:
+                    field_length = ""
+
                 if field_length:
                     temp += f"({field_length})"
                 if field_key:
@@ -860,6 +850,8 @@ class Database:
                         field_default = "''::bpchar"
                     elif field_type in "timestamp":
                         field_default = "'0000-00-00 00:00:00'::timestamp without time zone"
+                    elif field_type in "inet":
+                        field_default = "'0.0.0.0'::inet"
                     else:
                         pass
                     if field_default:
@@ -892,9 +884,9 @@ class Database:
         sql = f"ALTER TABLE {schema}.{old_name} RENAME TO 1{new_name}"
         return self.execute(sql=sql, result=result)
 
-    def table_copy(self, old_table: str, old_schema: str = None, new_table: str = None, new_schema: str = None,  result: dict = {}) -> bool:
+    def table_copy(self, old_table_name: str, old_schema: str = None, new_table_name: str = None, new_schema: str = None,  result: dict = {}) -> bool:
         """复制表_同步
-        old_schema为空时,复制当前schema的表,old_schema不为空时,复制传入的schema的表 new_table为空时,则使用old_table+copy命名
+        old_schema为空时,复制当前schema的表,old_schema不为空时,复制传入的schema的表 new_table_name为空时,则使用old_table_name+copy命名
         """
         if not old_schema:
             old_schema = self.schema
@@ -902,13 +894,13 @@ class Database:
         if not new_schema:
             new_schema = old_schema
 
-        if not new_table:
-            new_table = f'{old_table}_copy'
+        if not new_table_name:
+            new_table_name = f'{old_table_name}_copy'
 
         if self.genre == "mysql":
             pass
         else:
-            sql = f"CREATE TABLE {new_schema}.{new_table} AS SELECT * FROM {old_schema}.{old_table}"
+            sql = f"CREATE TABLE {new_schema}.{new_table_name} AS SELECT * FROM {old_schema}.{old_table_name}"
         return self.execute(sql=sql, result=result)
 
     def tables_get(self, schema: str = None, table_name: str = None, result: dict = {}) -> bool:
@@ -925,7 +917,21 @@ class Database:
                 sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
         return self.execute(sql=sql, result=result)
 
-    def fields_get(self, table: str = None, schema: str = None,  result: dict = {}) -> bool:
+    def table_drop(self, table_name: str = None, schema: str = None, cascade: bool = False, result: dict = {}) -> bool:
+        """表删除_同步
+        """
+        if not schema:
+            schema = self.schema
+        if self.genre == "mysql":
+            pass
+        else:
+            if cascade:
+                sql = f"DROP TABLE IF EXISTS {schema}.{table_name} CASCADE"
+            else:
+                sql = f"DROP TABLE IF EXISTS {schema}.{table_name}"
+        return self.execute(sql=sql, result=result)
+
+    def fields_get(self, table_name: str = None, schema: str = None,  result: dict = {}) -> bool:
         """获取字段名_同步
         """
         if not schema:
@@ -973,15 +979,39 @@ class Database:
 
         return self.execute(sql=sql, result=result)
 
-    def index_create_async(self, table_name: str, field_name: str, schema: str = None, result: dict = {}) -> bool:
+    def index_create(self, table_name: str, fields_name: str, schema: str = None, index_type: str = "", index_name: str = None, result: dict = {}) -> bool:
         """创建索引_同步
         """
         if not schema:
             schema = self.schema
+        if not index_name:
+            index_name = f'{fields_name}_index'
         if self.genre == "mysql":
             pass
         else:
-            sql = f"CREATE INDEX {field_name} ON {schema}.{table_name} ({field_name});"
+            sql = f"CREATE {index_type} INDEX {index_name} ON {schema}.{table_name} ({fields_name});"
+        return self.execute(sql=sql, result=result)
+
+    def extension_create(self, extname: str,  schema: str = None, result: dict = {}) -> bool:
+        """创建扩展_同步
+            不存在则创建 存在则无视
+            extname:扩展名  例---> ltree
+        """
+        if self.genre == "mysql":
+            pass
+        else:
+            sql = f"CREATE EXTENSION IF NOT EXISTS {extname};"
+        return self.execute(sql=sql, result=result)
+
+    def extensions_get(self, extname: str,  result: dict = {}) -> bool:
+        """扩展列表获取_同步
+            不存在则创建 存在则无视
+            extname:扩展名  例---> ltree
+        """
+        if self.genre == "mysql":
+            pass
+        else:
+            sql = f"SELECT * FROM pg_extension WHERE extname = '{extname}';"
         return self.execute(sql=sql, result=result)
 
 # ====异步====
@@ -1133,7 +1163,7 @@ class Database:
                             if ("SELECT" in sql.upper()):  # 查询
                                 data = await cursor.fetchall()
                                 data = datetime_to_str(
-                                    field=cursor.description, data=data)
+                                    data=data, field=cursor.description)
                             elif ("UPDATE" in sql.upper() or "DELETE" in sql.upper()):  # 更新或删除
                                 data = [{"total": cursor.rowcount}]
                             else:  # 执行
@@ -1160,10 +1190,12 @@ class Database:
                     try:  # 异常块
                         # 执行查询
                         data = record2json(await conn.fetch(sql))
+                        # data =await conn.fetch(sql)
                         if len(data) < 1:  # 未获取到数据
                             # 回滚
                             raise Exception("未获取到数据")
 
+                        data = datetime_to_str(data=data)
                         result["data"] = data
                         return True
 
@@ -1235,7 +1267,7 @@ class Database:
         # 执行并返回
         return await self.execute_async(sql=sql, result=result)
 
-    async def insert_async(self, table: str, key: str = None, value: str = None, json_data: dict | list = None, schema=None, index: str = None, result: dict = {}) -> bool:
+    async def insert_async(self, table_name: str, key: str = None, value: str = None, json_data: dict | list = None, schema=None, index: str = None, result: dict = {}) -> bool:
         """插入_同步
         Args:
             table (str): 表名
@@ -1299,7 +1331,7 @@ class Database:
                 key = ",".join(tem_list)
 
         # 处理表名
-        table_name = table_name_process(table, schema, self.schema)
+        table_name = table_name_process(table_name, schema, self.schema)
 
         # 拼接语句
         if self.genre == "mysql":
@@ -1310,12 +1342,12 @@ class Database:
 
         return await self.execute_async(sql=sql,  result=result)
 
-    async def delete_async(self, table: str, condition: str = None, schema: str = None, result: dict = {}) -> bool:
+    async def delete_async(self, table_name: str, where: str = None, schema: str = None, result: dict = {}) -> bool:
         """删除_异步
 
         Args:
             table (str): 表名
-            condition (str): 条件,不填则会清空表
+            where (str): 条件,不填则会清空表
             schema (str, optional): 在mysql中这个参数代表数据库,在pgsql中代表架构. Defaults to None.
             result (dict, optional): 返回对象,包含了数据/错误信息/语句等. Defaults to {}.
 
@@ -1324,24 +1356,24 @@ class Database:
         """
 
         # 如果没有条件,则直接清空
-        if not condition:
-            return await self.truncate_async(table=table, schema=schema)
+        if not where:
+            return await self.truncate_async(table=table_name, schema=schema)
 
         # 处理条件
-        condition = condition_process(condition)
+        where = where_process(where)
 
         # 处理表名
-        table_name = table_name_process(table, schema, self.schema)
+        table_name = table_name_process(table_name, schema, self.schema)
         # 拼接语句
-        sql = f"DELETE FROM {table_name}{condition}"
+        sql = f"DELETE FROM {table_name}{where}"
         return await self.execute_async(sql=sql,  result=result)
 
-    async def update_async(self, table: str, condition: str = None, kv: str = None, json_data: dict | list = None, schema: str = None, index: str = None, result: dict = {}) -> bool:
+    async def update_async(self, table_name: str, where: str = None, kv: str = None, json_data: dict | list = None, schema: str = None, index: str = None, result: dict = {}) -> bool:
         """更新_异步
 
         Args:
             table (str): 表名
-            condition (str, optional):条件. Defaults to None.
+            where (str, optional):条件. Defaults to None.
             kv (str, optional): 原参数 a=b,c=d. Defaults to None.
             json_data (dict, optional): 对象参数,如果该参数不为空,kv将失效. Defaults to None.
             schema (str, optional): mysql中为库名,pgsql中为架构. Defaults to None.
@@ -1361,23 +1393,23 @@ class Database:
             kv = kv[1:]
 
         # 处理条件
-        condition = condition_process(condition)
+        where = where_process(where)
         # 处理表名
-        table_name = table_name_process(table, schema, self.schema)
+        table_name = table_name_process(table_name, schema, self.schema)
         # 拼接语句
-        sql = f"UPDATE {table_name} SET {kv}{condition}"
+        sql = f"UPDATE {table_name} SET {kv}{where}"
         if self.genre == "pgsql":
             sql += f" ON CONFLICT DO NOTHING" + \
                 f" RETURNING {index}" if index else ""
         return await self.execute_async(sql=sql, result=result)
 
-    async def select_async(self, table: str, condition: str = None, json_data: dict | list = None, field: str = "*", limit: str = None, order: str = None, group: str = None, schema: str = None, result: dict = {}) -> bool:
+    async def select_async(self, table_name: str, where: str = None, json_data: dict | list = None, field: str = "*", limit: str = None, order: str = None, group: str = None, schema: str = None, result: dict = {}) -> bool:
         """查询_异步
 
         Args:
             table (str): 表名
-            condition (str, optional): 条件,json_data不为空时,格式为这样 user_id=`user_id` AND create_time>=`create_time`. Defaults to None.
-            json_data (dict, optional): 对象参数. Defaults to None.
+            where (str, optional): 条件,json_data不为空时,格式为这样 user_id=`user_id` AND create_time>=`create_time`. Defaults to None.
+            json_data (dict, optional): 对象参数. Defaults to None. where=name=键名,
             field (str, optional): 字段. Defaults to "*".
             limit (str, optional): 条数. Defaults to None.
             order (str, optional): 排序. Defaults to None.
@@ -1389,12 +1421,12 @@ class Database:
             bool: _description_
         """
         # 处理条件
-        condition = condition_process(condition)
+        where = where_process(where)
         # 处理表名
-        table_name = table_name_process(table, schema, self.schema)
+        table_name = table_name_process(table_name, schema, self.schema)
         # 处理过滤
         sql = filter_process(genre=self.genre,
-                             sql=f"SELECT {field} FROM {table_name}{condition}", group=group, order=order, limit=limit)
+                             sql=f"SELECT {field} FROM {table_name}{where}", group=group, order=order, limit=limit)
 
         # 如果对象数据不为空,那么就自动替换条件里的参数
         if json_data:
@@ -1403,7 +1435,7 @@ class Database:
 
         return await self.execute_async(sql=sql,  result=result)
 
-    async def truncate_async(self, table: str, schema: str = None, result: dict = {}) -> bool:
+    async def truncate_async(self, table_name: str, schema: str = None, result: dict = {}) -> bool:
         """清空_异步
 
         Args:
@@ -1414,7 +1446,7 @@ class Database:
             bool: _description_
         """
         # 处理表名
-        table_name = table_name_process(table, schema, self.schema)
+        table_name = table_name_process(table_name, schema, self.schema)
         return await self.execute_async(sql=f"TRUNCATE TABLE {table_name}", result=result)
 
     async def database_get_async(self, result: dict = {}) -> bool:
@@ -1510,20 +1542,17 @@ class Database:
                     update_time = f"create or replace function update_time() returns trigger as $$ begin new.{field_name} = current_timestamp; return new; end $$ language plpgsql; create trigger update_time_{schema}_{table_name}_{field_name} before update on {schema}.{table_name} for each row execute procedure update_time();"
                 temp += f",{field_name} {field_type}"
                 if not field_length:
-                    if field_type == "smallint":
-                        field_length = "1"
-                    elif field_type == "integer":
-                        field_length = "10"
-                    elif field_type == "bigint":
-                        field_length = "19"
-                    elif field_type in ["varying", "varchar"]:
+                    if field_type in ["varying", "varchar"]:
                         field_length = "255"
                     elif field_type in ["character", "char"]:
                         field_length = "16"
-                    elif field_type in "timestamp":
+                    elif field_type == "timestamp":
                         field_length = "0"
                     else:
                         field_length = ""
+                elif field_type in ["inet", "serial", "bigserial"]:
+                    field_length = ""
+
                 if field_length:
                     temp += f"({field_length})"
                 if field_key:
@@ -1541,6 +1570,8 @@ class Database:
                         field_default = "''::bpchar"
                     elif field_type in "timestamp":
                         field_default = "'0000-00-00 00:00:00'::timestamp without time zone"
+                    elif field_type in "inet":
+                        field_default = "'0.0.0'::inet"
                     else:
                         pass
                     if field_default:
@@ -1588,9 +1619,9 @@ class Database:
                 sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
         return await self.execute_async(sql=sql, result=result)
 
-    async def table_copy_async(self, old_table: str, old_schema: str = None, new_table: str = None, new_schema: str = None,  result: dict = {}) -> bool:
+    async def table_copy_async(self, old_table_name: str, old_schema: str = None, new_table_name: str = None, new_schema: str = None,  result: dict = {}) -> bool:
         """复制表_异步
-        old_schema为空时,复制当前schema的表,old_schema不为空时,复制传入的schema的表 new_table为空时,则使用old_table+copy命名
+        old_schema为空时,复制当前schema的表,old_schema不为空时,复制传入的schema的表 new_table_name为空时,则使用old_table+copy命名
         """
         if not old_schema:
             old_schema = self.schema
@@ -1598,16 +1629,30 @@ class Database:
         if not new_schema:
             new_schema = old_schema
 
-        if not new_table:
-            new_table = f'{old_table}_copy'
+        if not new_table_name:
+            new_table_name = f'{old_table_name}_copy'
 
         if self.genre == "mysql":
             pass
         else:
-            sql = f"CREATE TABLE {new_schema}.{new_table} AS SELECT * FROM {old_schema}.{old_table}"
+            sql = f"CREATE TABLE {new_schema}.{new_table_name} AS SELECT * FROM {old_schema}.{old_table_name}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def fields_get_async(self, table: str, schema: str = None, result: dict = {}) -> bool:
+    async def table_drop_async(self, table_name: str = None, schema: str = None, cascade: bool = False, result: dict = {}) -> bool:
+        """表删除_异步
+        """
+        if not schema:
+            schema = self.schema
+        if self.genre == "mysql":
+            pass
+        else:
+            if cascade:
+                sql = f"DROP TABLE IF EXISTS {schema}.{table_name} CASCADE"
+            else:
+                sql = f"DROP TABLE IF EXISTS {schema}.{table_name}"
+        return await self.execute_async(sql=sql, result=result)
+
+    async def fields_get_async(self, table_name: str, schema: str = None, result: dict = {}) -> bool:
         # 获取字段_异步
         if not schema:
             schema = self.schema
@@ -1656,15 +1701,40 @@ class Database:
 
         return await self.execute_async(sql=sql, result=result)
 
-    async def index_create_async(self, table_name: str, field_name: str, schema: str = None, result: dict = {}) -> bool:
+    async def index_create_async(self, table_name: str, fields_name: str, schema: str = None, index_type: str = "", index_name: str = None, result: dict = {}) -> bool:
         """创建索引_异步
+        index_type---UNIQUE   空为INDEX
         """
         if not schema:
             schema = self.schema
+        if not index_name:
+            index_name = f'{fields_name}_index'
         if self.genre == "mysql":
             pass
         else:
-            sql = f"CREATE INDEX {field_name} ON {schema}.{table_name} ({field_name});"
+            sql = f"CREATE {index_type} INDEX {index_name} ON {schema}.{table_name} ({fields_name});"
+        return await self.execute_async(sql=sql, result=result)
+
+    async def extension_create_async(self, extname: str,  schema: str = None, result: dict = {}) -> bool:
+        """创建扩展_异步
+            不存在则创建 存在则无视
+            extname:扩展名  例---> ltree
+        """
+        if self.genre == "mysql":
+            pass
+        else:
+            sql = f"CREATE EXTENSION IF NOT EXISTS {extname};"
+        return await self.execute_async(sql=sql, result=result)
+
+    async def extensions_get_async(self, extname: str,  result: dict = {}) -> bool:
+        """扩展列表获取_异步
+            不存在则创建 存在则无视
+            extname:扩展名  例---> ltree
+        """
+        if self.genre == "mysql":
+            pass
+        else:
+            sql = f"SELECT * FROM pg_extension WHERE extname = '{extname}';"
         return await self.execute_async(sql=sql, result=result)
 
 
@@ -1675,24 +1745,24 @@ async def main():
     result = {}
     # await db.insert_async(table="users", json_data={
     #           "user_id": "111", "email": "21171193@qq.com"}, result=result)  # 插入
-    # print (await db.select_async(table="users", condition="id!=`id`", json_data={"id": 8},limit="1,1", result=result))#查询)
+    # print (await db.select_async(table="users", where="id!=`id`", json_data={"id": 8},limit="1,1", result=result))#查询)
     # await db.update_async(table="users", json_data={
     # "email": "91@qq.com"
-    # }, condition="user_id='111'", result=result)
-    # print(await db.delete_async(table="users",condition="user_id='p111'" ,result=result))
+    # }, where="user_id='111'", result=result)
+    # print(await db.delete_async(table="users",where="user_id='p111'" ,result=result))
     await db.truncate_async(table="users", result=result)
     print(result)
     pass
 
     # result = {}
     # # db.transaction_begin()
-    # # db.select(table="users", condition="id=`id`", json_data={"id": 8},limit="1,1", result=result)#查询
+    # # db.select(table="users", where="id=`id`", json_data={"id": 8},limit="1,1", result=result)#查询
     # # db.insert(table="users", json_data={
     #         #   "user_id": "p1111", "email": "3521171193@qq.com"}, result=result)  # 插入
 
     # # db.update(table="users", json_data={
     # #     "email": "87991@qq.com"
-    # # }, condition="user_id='131321'", result=result)
+    # # }, where="user_id='131321'", result=result)
     # print(await db.delete_async(table="users", result=result))
     # # db.transaction_end()
     # print(result)
