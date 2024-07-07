@@ -500,7 +500,7 @@ class Database:
 
             if len(data) > 0:
                 if self.genre == "mysql":  # mysql处理
-                    data = datetime_to_str(data=data, field=cursor.description)
+                    data = datetime_to_str(data=data, fields=cursor.description)
                 result["data"] = data
                 # field = []
                 # field = [i[0] for i in cursor.description]
@@ -551,7 +551,7 @@ class Database:
         # 执行并返回
         return self.execute(sql=sql, result=result)
 
-    def insert(self, table_name: str, key: str = None, value: str = None, json_data: dict | list = None, schema=None, index: str = None, result: dict = {}) -> bool:
+    def insert(self, table_name: str, key: str = "", value: str = "", json_data: dict | list = [], schema=None, index: str = "", result: dict = {}) -> bool:
         """插入_同步
         Args:
             table (str): 表名
@@ -587,7 +587,7 @@ class Database:
                     value = value.replace("'None'", "''")
                 else:
                     # 如果是pgsql,将None和空字符替换成默认
-                    value = valuse.replace("'None'", "DEFAULT")
+                    value = value.replace("'None'", "DEFAULT")
                     value = value.replace("''", "DEFAULT")
                 # 去掉值中第一个逗号
                 if value[1:] == ",":
@@ -626,7 +626,7 @@ class Database:
 
         return self.execute(sql=sql,  result=result)
 
-    def delete(self, table_name: str, where: str = None, schema: str = None, result: dict = {}) -> bool:
+    def delete(self, table_name: str, where: str = "", schema: str = "", result: dict = {}) -> bool:
         """删除_同步
 
         Args:
@@ -640,7 +640,7 @@ class Database:
         """
         # 如果没有条件,则直接清空
         if not where:
-            return self.truncate(table=table_name, schema=schema, result=result)
+            return self.truncate(table_name=table_name, schema=schema, result=result)
 
         # 处理条件
         where = where_process(where)
@@ -651,7 +651,7 @@ class Database:
         sql = f"DELETE FROM {table_name}{where}"
         return self.execute(sql=sql,  result=result)
 
-    def update(self, table_name: str, where: str = None, kv: str = None, json_data: dict | list = None, schema: str = None, index: str = None, result: dict = {}) -> bool:
+    def update(self, table_name: str, where: str = "", kv: str = "", json_data: dict | list = [], schema: str = "", index: str = "", result: dict = {}) -> bool:
         """更新_同步
 
         Args:
@@ -718,7 +718,7 @@ class Database:
 
         return self.execute(sql=sql,  result=result)
 
-    def truncate(self, table_name: str, schema: str = None, result: dict = {}) -> bool:
+    def truncate(self, table_name: str, schema: str = "", result: dict = {}) -> bool:
         """清空_同步
 
         Args:
@@ -768,7 +768,7 @@ class Database:
         sql = f"CREATE SCHEMA {schema}"
         return self.execute(sql=sql, result=result)
 
-    def schema_drop(self, schema: str = None, result: dict = {}) -> bool:
+    def schema_drop(self, schema: str = "", result: dict = {}) -> bool:
         """删除架构_同步
         schema为空时,删除当前schema,schema不为空时,删除传入的schema
         """
@@ -777,7 +777,7 @@ class Database:
         sql = f"DROP SCHEMA {schema}"
         return self.execute(sql=sql, result=result)
 
-    def schema_rename(self, old_name: str, new_name: str = None, result: dict = {}) -> bool:
+    def schema_rename(self, old_name: str, new_name: str = "", result: dict = {}) -> bool:
         """重命名架构_同步
         old_name为空时,修改当前schema,schema不为空时,修改传入的schema
         """
@@ -786,7 +786,7 @@ class Database:
         sql = f"ALTER SCHEMA {old_name} RENAME TO {new_name}"
         return self.execute(sql=sql, result=result)
 
-    def table_create(self,  table_name: str, fields: list, table_remark: str = None, schema: str = None, result: dict = {}) -> bool:
+    def table_create(self,  table_name: str, fields: list, table_remark: str = "", schema: str = "", result: dict = {}) -> bool:
         """创建表_同步
         """
         if not schema:
@@ -875,7 +875,7 @@ class Database:
                 sql += update_time
         return self.execute(sql=sql, result=result)
 
-    def table_rename(self, old_name: str, new_name: str = None, schema: str = None, result: dict = {}) -> bool:
+    def table_rename(self, old_name: str, new_name: str = "", schema: str = "", result: dict = {}) -> bool:
         """重命名表_同步
         old_name为空时,修改当前schema,schema不为空时,修改传入的schema
         """
@@ -884,7 +884,7 @@ class Database:
         sql = f"ALTER TABLE {schema}.{old_name} RENAME TO 1{new_name}"
         return self.execute(sql=sql, result=result)
 
-    def table_copy(self, old_table_name: str, old_schema: str = None, new_table_name: str = None, new_schema: str = None,  result: dict = {}) -> bool:
+    def table_copy(self, old_table_name: str, old_schema: str = "", new_table_name: str = "", new_schema: str = "",  result: dict = {}) -> bool:
         """复制表_同步
         old_schema为空时,复制当前schema的表,old_schema不为空时,复制传入的schema的表 new_table_name为空时,则使用old_table_name+copy命名
         """
@@ -903,7 +903,7 @@ class Database:
             sql = f"CREATE TABLE {new_schema}.{new_table_name} AS SELECT * FROM {old_schema}.{old_table_name}"
         return self.execute(sql=sql, result=result)
 
-    def tables_get(self, schema: str = None, table_name: str = None, result: dict = {}) -> bool:
+    def tables_get(self, schema: str = "", table_name: str = "", result: dict = {}) -> bool:
         """获取表名_同步
         """
         if not schema:
@@ -917,7 +917,7 @@ class Database:
                 sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
         return self.execute(sql=sql, result=result)
 
-    def table_drop(self, table_name: str = None, schema: str = None, cascade: bool = False, result: dict = {}) -> bool:
+    def table_drop(self, table_name: str = "", schema: str = "", cascade: bool = False, result: dict = {}) -> bool:
         """表删除_同步
         """
         if not schema:
@@ -931,7 +931,7 @@ class Database:
                 sql = f"DROP TABLE IF EXISTS {schema}.{table_name}"
         return self.execute(sql=sql, result=result)
 
-    def fields_get(self, table_name: str = None, schema: str = None,  result: dict = {}) -> bool:
+    def fields_get(self, table_name: str = "", schema: str = "",  result: dict = {}) -> bool:
         """获取字段名_同步
         """
         if not schema:
@@ -939,7 +939,7 @@ class Database:
         if self.genre == "mysql":
             pass
         else:
-            sql = f"SELECT \"column_name\" FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+            sql = f"SELECT \"column_name\" FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table_name}'"
         return self.execute(sql=sql, result=result)
 
     def fun_uuid_create(self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}) -> bool:
@@ -964,7 +964,7 @@ class Database:
             sql = f"DROP FUNCTION {fun_name}();"
         return self.execute(sql=sql, result=result)
 
-    def funs_get(self, fun_name: str = None, schema: str = None, result: dict = {}) -> bool:
+    def funs_get(self, fun_name: str = "", schema: str = "", result: dict = {}) -> bool:
         """函数列表获取_同步
         """
         if not schema:
@@ -979,7 +979,7 @@ class Database:
 
         return self.execute(sql=sql, result=result)
 
-    def index_create(self, table_name: str, fields_name: str, schema: str = None, index_type: str = "", index_name: str = None, result: dict = {}) -> bool:
+    def index_create(self, table_name: str, fields_name: str, schema: str = "", index_type: str = "", index_name: str = "", result: dict = {}) -> bool:
         """创建索引_同步
         """
         if not schema:
@@ -992,7 +992,7 @@ class Database:
             sql = f"CREATE {index_type} INDEX {index_name} ON {schema}.{table_name} ({fields_name});"
         return self.execute(sql=sql, result=result)
 
-    def extension_create(self, extname: str,  schema: str = None, result: dict = {}) -> bool:
+    def extension_create(self, extname: str,  schema: str = "", result: dict = {}) -> bool:
         """创建扩展_同步
             不存在则创建 存在则无视
             extname:扩展名  例---> ltree
@@ -1070,10 +1070,12 @@ class Database:
                 # 判断执行是否成功
                 if success:
                     # 提交事务
-                    await self.conn.commit()
+                    # await self.conn.commit()
+                    self.conn.commit()
                 else:
                     # 回滚事务
-                    await self.conn.rollback()
+                    #await self.conn.rollback()
+                    self.conn.rollback()
                 # 关闭连接
                 self.conn.close()
                 self.conn = None
@@ -1088,7 +1090,8 @@ class Database:
                     # 回滚事务
                     await self.transaction.rollback()
                 # 关闭连接
-                await self.conn.close()
+                #await self.conn.close()
+                self.conn.close()
                 self.conn = None
                 self.transaction = None
 
@@ -1163,7 +1166,7 @@ class Database:
                             if ("SELECT" in sql.upper()):  # 查询
                                 data = await cursor.fetchall()
                                 data = datetime_to_str(
-                                    data=data, field=cursor.description)
+                                    data=data, fields=cursor.description)
                             elif ("UPDATE" in sql.upper() or "DELETE" in sql.upper()):  # 更新或删除
                                 data = [{"total": cursor.rowcount}]
                             else:  # 执行
@@ -1208,7 +1211,8 @@ class Database:
                     finally:  # 最终
                         if not self.conn:
                             # 没有事务,关闭连接
-                            await conn.close()
+                            #await conn.close()
+                            conn.close()
 
             # 不带索引的执行语句
             async with self.lock:  # 获取一个锁
@@ -1242,7 +1246,8 @@ class Database:
                 finally:  # 最终
                     if not self.conn:
                         # 没有事务,关闭连接
-                        await conn.close()
+                        #await conn.close()
+                        conn.close()
 
     async def total_async(self, sql: str, result: dict = {}) -> bool:
         """查询总数_同步
@@ -1267,7 +1272,7 @@ class Database:
         # 执行并返回
         return await self.execute_async(sql=sql, result=result)
 
-    async def insert_async(self, table_name: str, key: str = None, value: str = None, json_data: dict | list = None, schema=None, index: str = None, result: dict = {}) -> bool:
+    async def insert_async(self, table_name: str, key: str = "", value: str = "", json_data: dict | list = [], schema="", index: str = "", result: dict = {}) -> bool:
         """插入_同步
         Args:
             table (str): 表名
@@ -1303,7 +1308,7 @@ class Database:
                     value = value.replace("'None'", "''")
                 else:
                     # 如果是pgsql,将None和空字符替换成默认
-                    value = valuse.replace("'None'", "DEFAULT")
+                    value = value.replace("'None'", "DEFAULT")
                     value = value.replace("''", "DEFAULT")
                 # 去掉值中第一个逗号
                 if value[1:] == ",":
@@ -1342,7 +1347,7 @@ class Database:
 
         return await self.execute_async(sql=sql,  result=result)
 
-    async def delete_async(self, table_name: str, where: str = None, schema: str = None, result: dict = {}) -> bool:
+    async def delete_async(self, table_name: str, where: str = "", schema: str = "", result: dict = {}) -> bool:
         """删除_异步
 
         Args:
@@ -1357,7 +1362,7 @@ class Database:
 
         # 如果没有条件,则直接清空
         if not where:
-            return await self.truncate_async(table=table_name, schema=schema)
+            return await self.truncate_async(table_name=table_name, schema=schema)
 
         # 处理条件
         where = where_process(where)
@@ -1368,7 +1373,7 @@ class Database:
         sql = f"DELETE FROM {table_name}{where}"
         return await self.execute_async(sql=sql,  result=result)
 
-    async def update_async(self, table_name: str, where: str = None, kv: str = None, json_data: dict | list = None, schema: str = None, index: str = None, result: dict = {}) -> bool:
+    async def update_async(self, table_name: str, where: str = "", kv: str = "", json_data: dict | list = [], schema: str = "", index: str = "", result: dict = {}) -> bool:
         """更新_异步
 
         Args:
@@ -1403,7 +1408,7 @@ class Database:
                 f" RETURNING {index}" if index else ""
         return await self.execute_async(sql=sql, result=result)
 
-    async def select_async(self, table_name: str, where: str = None, json_data: dict | list = None, field: str = "*", limit: str = None, order: str = None, group: str = None, schema: str = None, result: dict = {}) -> bool:
+    async def select_async(self, table_name: str, where: str = "", json_data: dict | list = [], field: str = "*", limit: str = "", order: str = "", group: str = "", schema: str = "", result: dict = {}) -> bool:
         """查询_异步
 
         Args:
@@ -1435,7 +1440,7 @@ class Database:
 
         return await self.execute_async(sql=sql,  result=result)
 
-    async def truncate_async(self, table_name: str, schema: str = None, result: dict = {}) -> bool:
+    async def truncate_async(self, table_name: str, schema: str = "", result: dict = {}) -> bool:
         """清空_异步
 
         Args:
@@ -1468,7 +1473,7 @@ class Database:
         sql = f"CREATE SCHEMA {schema}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def schema_drop_async(self, schema: str = None, result: dict = {}) -> bool:
+    async def schema_drop_async(self, schema: str = "", result: dict = {}) -> bool:
         """删除架构_异步
         schema为空时,删除当前schema,schema不为空时,删除传入的schema
         """
@@ -1477,7 +1482,7 @@ class Database:
         sql = f"DROP SCHEMA {schema}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def schema_rename_async(self, old_name: str, new_name: str = None, result: dict = {}) -> bool:
+    async def schema_rename_async(self, old_name: str, new_name: str = "", result: dict = {}) -> bool:
         """重命名架构_异步
         old_name为空时,修改当前schema,schema不为空时,修改传入的schema
         """
@@ -1486,7 +1491,7 @@ class Database:
         sql = f"ALTER SCHEMA {old_name} RENAME TO {new_name}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def schemas_get_async(self, schema: str = None, result: dict = {}) -> bool:
+    async def schemas_get_async(self, schema: str = "", result: dict = {}) -> bool:
         """获取架构_异步
         如果schema不为空,则查询该schema是否存在 如果为空,则查询所有架构
         """
@@ -1504,9 +1509,9 @@ class Database:
             pass
         else:
             sql = "SHOW search_path"
-        return self.execute_async(sql=sql, result=result)
+        return await self.execute_async(sql=sql, result=result)
 
-    async def table_create_async(self,  table_name: str, fields: list, table_remark: str = None, schema: str = None, result: dict = {}) -> bool:
+    async def table_create_async(self,  table_name: str, fields: list, table_remark: str = "", schema: str = "", result: dict = {}) -> bool:
         """创建表_异步
         """
         if not schema:
@@ -1596,7 +1601,7 @@ class Database:
 
         return await self.execute_async(sql=sql, result=result)
 
-    async def table_rename_async(self, old_name: str, new_name: str = None, schema: str = None, result: dict = {}) -> bool:
+    async def table_rename_async(self, old_name: str, new_name: str = "", schema: str = "", result: dict = {}) -> bool:
         """重命名表_异步
         old_name为空时,修改当前schema,schema不为空时,修改传入的schema
         """
@@ -1605,7 +1610,7 @@ class Database:
         sql = f"ALTER TABLE {schema}.{old_name} RENAME TO 1{new_name}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def tables_get_async(self, schema: str = None, table_name: str = None, result: dict = {}) -> bool:
+    async def tables_get_async(self, schema: str = "", table_name: str = "", result: dict = {}) -> bool:
         """获取表名_异步
         """
         if not schema:
@@ -1619,7 +1624,7 @@ class Database:
                 sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
         return await self.execute_async(sql=sql, result=result)
 
-    async def table_copy_async(self, old_table_name: str, old_schema: str = None, new_table_name: str = None, new_schema: str = None,  result: dict = {}) -> bool:
+    async def table_copy_async(self, old_table_name: str, old_schema: str = "", new_table_name: str = "", new_schema: str = "",  result: dict = {}) -> bool:
         """复制表_异步
         old_schema为空时,复制当前schema的表,old_schema不为空时,复制传入的schema的表 new_table_name为空时,则使用old_table+copy命名
         """
@@ -1638,7 +1643,7 @@ class Database:
             sql = f"CREATE TABLE {new_schema}.{new_table_name} AS SELECT * FROM {old_schema}.{old_table_name}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def table_drop_async(self, table_name: str = None, schema: str = None, cascade: bool = False, result: dict = {}) -> bool:
+    async def table_drop_async(self, table_name: str = "", schema: str = "", cascade: bool = False, result: dict = {}) -> bool:
         """表删除_异步
         """
         if not schema:
@@ -1652,14 +1657,14 @@ class Database:
                 sql = f"DROP TABLE IF EXISTS {schema}.{table_name}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def fields_get_async(self, table_name: str, schema: str = None, result: dict = {}) -> bool:
+    async def fields_get_async(self, table_name: str, schema: str = "", result: dict = {}) -> bool:
         # 获取字段_异步
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
             pass
         else:
-            sql = f"SELECT column_name FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+            sql = f"SELECT column_name FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table_name}'"
         return await self.execute_async(sql=sql, result=result)
 
         # 创建一个新的函数来创建模式
@@ -1686,7 +1691,7 @@ class Database:
             sql = f"DROP FUNCTION {fun_name}();"
         return await self.execute_async(sql=sql, result=result)
 
-    async def funs_get_async(self, fun_name: str = None, schema: str = None, result: dict = {}) -> bool:
+    async def funs_get_async(self, fun_name: str = "", schema: str = "", result: dict = {}) -> bool:
         """函数列表获取_异步
         """
         if not schema:
@@ -1701,7 +1706,7 @@ class Database:
 
         return await self.execute_async(sql=sql, result=result)
 
-    async def index_create_async(self, table_name: str, fields_name: str, schema: str = None, index_type: str = "", index_name: str = None, result: dict = {}) -> bool:
+    async def index_create_async(self, table_name: str, fields_name: str, schema: str = "", index_type: str = "", index_name: str = "", result: dict = {}) -> bool:
         """创建索引_异步
         index_type---UNIQUE   空为INDEX
         """
@@ -1715,7 +1720,7 @@ class Database:
             sql = f"CREATE {index_type} INDEX {index_name} ON {schema}.{table_name} ({fields_name});"
         return await self.execute_async(sql=sql, result=result)
 
-    async def extension_create_async(self, extname: str,  schema: str = None, result: dict = {}) -> bool:
+    async def extension_create_async(self, extname: str,  schema: str = "", result: dict = {}) -> bool:
         """创建扩展_异步
             不存在则创建 存在则无视
             extname:扩展名  例---> ltree
@@ -1750,7 +1755,7 @@ async def main():
     # "email": "91@qq.com"
     # }, where="user_id='111'", result=result)
     # print(await db.delete_async(table="users",where="user_id='p111'" ,result=result))
-    await db.truncate_async(table="users", result=result)
+    await db.truncate_async(table_name="users", result=result)
     print(result)
     pass
 

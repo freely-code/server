@@ -4,7 +4,7 @@
 import redis
 import aioredis
 import asyncio
-
+from typing import Optional,Callable,Any
 
 class Redis:
     def __init__(self, **kwargs: dict) -> None:
@@ -51,7 +51,7 @@ class Redis:
             pool = redis.ConnectionPool(**self.kwargs)
             self.redis = redis.Redis(connection_pool=pool)
 
-    def transaction_begin(self, watch_key: [str, list] = None):
+    def transaction_begin(self, watch_key: Optional[str| list] = None):
         """事务开始_同步
             watch_key: 监视的键，在事务执行期间如果监视的键被修改，事务会被打断并返回一个错误
         """
@@ -70,7 +70,7 @@ class Redis:
         else:
             self.pipe.discard()
 
-    def set(self, key: str, value: str = "", expire: int = None) -> bool:
+    def set(self, key: str, value: str = "", expire: int = -1) -> bool:
         """设置键值对_同步
             expire:过期时间(秒)
             返回是否成功
@@ -85,7 +85,7 @@ class Redis:
                 self.transaction_end(success=False)
             return False
 
-    def get(self, key: [str, tuple]) -> str:
+    def get(self, key:str| tuple) -> str:
         """获取键值对_同步
             返回值
         """
@@ -93,13 +93,13 @@ class Redis:
             return self.redis.mget(key)
         return self.redis.get(key)
 
-    def delete(self, *key: [str, list]) -> int:
+    def delete(self, *key: str|list) -> int:
         """删除键值对_同步
             返回删除个数
         """
         return self.redis.delete(*key)
 
-    def append(self, key: str, value: str = None) -> int:
+    def append(self, key: str, value: str = "") -> int:
         """追加值_同步
             返回追加后的长度
         """
@@ -117,7 +117,7 @@ class Redis:
         """
         return self.redis.decrby(key, value)
 
-    def list_push(self, key: str, value: str = "", expire: int = None, end: bool = False) -> bool:
+    def list_push(self, key: str, value: str = "", expire: int = -1, end: bool = False) -> bool:
         """添加列表_同步
             expire:过期时间(秒)
             end:是否在列表尾部追加
@@ -134,7 +134,7 @@ class Redis:
         except Exception as e:
             return False
 
-    def list_pop(self, key: [str, list],  end: bool = False, timeout: int = 0) -> str:
+    def list_pop(self, key: str|list,  end: bool = False, timeout: int = 0) -> str:
         """弹出列表_同步
             key:如果为字符串,则立即弹出 如果为列表,则循环这个列表进行弹出,直到某个列表有值能弹出了,就返回,否则一直循环等待,如果等待的时间超过了超时时间则返回None
                 例如:key为['a','b','c'] 先查看a是否能弹出值,能就返回,不能就看b,一直看到最后一个,又返回到a看是否能弹出
@@ -155,7 +155,7 @@ class Redis:
             else:
                 return self.redis.lpop(key)
         except Exception as e:
-            return None
+            return ""
 
     def list_range(self, key: str, start: int = 0,  end: int = -1) -> list:
         """获取列表_同步
@@ -192,7 +192,7 @@ class Redis:
         except Exception as e:
             return False
 
-    def set_add(self, key: str, value: [str, list] = "", expire: int = None) -> bool:
+    def set_add(self, key: str, value: Optional[str| list] = None, expire: int = -1) -> bool:
         """添加集合_同步
             expire:过期时间(秒)
             返回是否成功
@@ -241,9 +241,9 @@ class Redis:
             self.pipe = self.redis.pipeline(transaction=False)
             self.pipe.watch(key)
         except Exception as e:
-            return None
+            return {}
 
-    def subscriber(self, channel: [str, list], callback: any = None) -> None:
+    def subscriber(self, channel: str|list, callback: Callable[[Any], None] = None) -> None:
         """订阅者_同步
             返回是否包含
         """
@@ -256,7 +256,7 @@ class Redis:
                 if message['type'] == 'message':
                     print(f'Received message: {message["data"]}')
 
-    def publisher(self, channel: [str, list], message: str = "") -> int:
+    def publisher(self, channel: str|list, message: str = "") -> int:
         """发布者_同步
             返回订阅数
         """
@@ -275,14 +275,14 @@ class Redis:
         url = f"redis://{self.kwargs.get('host')}:{self.kwargs.get('port')}/{self.kwargs.get('db')}"
         self.redis = aioredis.from_url(url=url, **self.kwargs)
 
-    async def set_async(self, key: str, value: str = "", expire: int = None) -> bool:
+    async def set_async(self, key: str, value: str = "", expire: int = -1) -> bool:
         """设置键值对_同步
             expire:过期时间(秒)
             返回是否成功
         """
         return await self.redis.set(key, value, ex=expire)  # ex秒 px毫秒
 
-    async def get_async(self, key: [str, tuple]) -> str:
+    async def get_async(self, key: str|tuple) -> str:
         """获取键值对_同步
             返回值
         """
@@ -290,13 +290,13 @@ class Redis:
             return await self.redis.mget(key)
         return await self.redis.get(key)
 
-    async def delete_async(self, *key: [str, list]) -> int:
+    async def delete_async(self, *key: str|list) -> int:
         """删除键值对_同步
             返回删除个数
         """
         return await self.redis.delete(*key)
 
-    async def append_async(self, key: str, value: str = None) -> int:
+    async def append_async(self, key: str, value: str = "") -> int:
         """追加值_同步
             返回追加后的长度
         """
@@ -314,7 +314,7 @@ class Redis:
         """
         return await self.redis.decrby(key, value)
 
-    async def list_push_async(self, key: str, value: str = "", expire: int = None, end: bool = False) -> bool:
+    async def list_push_async(self, key: str, value: str = "", expire: int = -1, end: bool = False) -> bool:
         """添加列表_同步
             expire:过期时间(秒)
             end:是否在列表尾部追加
@@ -331,7 +331,7 @@ class Redis:
         except Exception as e:
             return False
 
-    async def list_pop_async(self, key: [str, list],  end: bool = False, timeout: int = 0) -> str:
+    async def list_pop_async(self, key: str| list,  end: bool = False, timeout: int = 0) -> str:
         """弹出列表_同步
             key:如果为字符串,则立即弹出 如果为列表,则循环这个列表进行弹出,直到某个列表有值能弹出了,就返回,否则一直循环等待,如果等待的时间超过了超时时间则返回None
                 例如:key为['a','b','c'] 先查看a是否能弹出值,能就返回,不能就看b,一直看到最后一个,又返回到a看是否能弹出
@@ -389,7 +389,7 @@ class Redis:
         except Exception as e:
             return False
 
-    async def set_add_async(self, key: str, value: [str, list] = "", expire: int = None) -> bool:
+    async def set_add_async(self, key: str, value: str| list = "", expire: int = -1) -> bool:
         """添加集合_同步
             expire:过期时间(秒)
             返回是否成功
@@ -436,9 +436,9 @@ class Redis:
         try:
             return self.redis.smembers(key)
         except Exception as e:
-            return None
+            return {}
 
-    async def subscriber_async(self, channel: [str, list], callback: any = None) -> None:
+    async def subscriber_async(self, channel: str|list, callback: Callable[[Any], None] = None) -> None:
         """订阅者_同步
             返回是否包含
         # """
@@ -452,7 +452,7 @@ class Redis:
                 if message['type'] == 'message':
                     print(f'Received message: {message["data"]}')
 
-    async def publisher_async(self, channel: [str, list], message: str = "") -> int:
+    async def publisher_async(self, channel: str|list, message: str = "") -> int:
         """发布者_同步
             返回订阅数
         """
@@ -477,7 +477,7 @@ async def aaa(**k):
     # print(await a.get_async("a"))
 
 
-async def test(a):
+async def test(a)->None:
     async for message in a.listen():
         if message['type'] == 'message':
             print(f'收到: {message["data"]}')
