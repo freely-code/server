@@ -1,6 +1,7 @@
 #加解密文件
 import uuid
 import time,jwt
+import hashlib
 
 def token_handle(user_info={}, token="", expire=604800):
     """

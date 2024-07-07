@@ -5,13 +5,15 @@ import yaml  # 配置文件
 import json  # 数据处理
 import signal  # 信号处理
 import logging  # 日志
+from init import init  # 初始化
 from routes import *  # 路由
-from tornado import web, ioloop
-from tools.str import str2bool, arguments_format
+from tornado import web, ioloop,routing
+from tools.str import  arguments_format
 from tools.database import Database
 from tools.system import log, port_check
 from tools.ende import token_handle, guid
 from tools.redis import Redis
+from typing import Optional
 logging.getLogger('tornado.access').disabled = True
 db = None
 redis = None
@@ -69,7 +71,7 @@ config_model = {
 # (r'/static/(.*)', web.StaticFileHandler, {'path': static_path} )
 
 
-def config(path: str = None) -> dict:
+def config(path: str = "") -> dict:
     # 初始化配置文件
     # path默认为当前目录下的config.yaml
     if not path:
@@ -334,18 +336,18 @@ class MainHandler(web.RequestHandler):
         self.host = self.request.headers.get("host")
         # 取身份验证
         self.token = self.request.headers.get("authorization", "")
-        self.token = None if self.token == "undefined" else self.token
+        self.token = "" if self.token == "undefined" else self.token
         # 校验身份
         self.user_id = ""
         self.user_info = {}
-        if self.token and self.token != "undefined":
+        if self.token:
             # 去除杂质
-            self.token = self.token.split()
-            if self.token:
-                self.token = self.token[-1]
+            temp = self.token.split()
+            if temp:
+                self.token = temp[-1]
 
             self.user_info = token_handle(token=self.token)
-            if self.user_info:
+            if self.user_info and isinstance(self.user_info, dict):
                 self.user_id = self.user_info['user_id']
             else:
                 self.token = self.user_id = ""
@@ -406,11 +408,12 @@ class MainHandler(web.RequestHandler):
         #     # self.finish()
         super().on_finish()
 
+
     def options(self, *args, **kwargs):
         self.set_status(204)
         self.finish()
 
-    def response(self, msg: str = "", success: bool = False, result: dict = None) -> str:
+    def response(self, msg: str = "", success: bool = False, result: dict = {}) -> dict:
         """返回对象
 
         Args:
@@ -423,9 +426,7 @@ class MainHandler(web.RequestHandler):
         """
 
         # 初始化data
-        data = {"data": {}}
-        data["success"] = success
-        data["msg"] = msg
+        data = {"data": {},"success": success, "msg": msg}
         # 如果有返回对象
         if result:
             # 判断返回对象是否为字符串
@@ -480,12 +481,15 @@ class MainHandler(web.RequestHandler):
     async def complete(self, handler=None, data=None) -> None:
         """完成请求
         """
-        # data有值且判断返回对象是否为字符串
-        if data and not isinstance(data, str):
-            # 将对象转换成字符串
+        if handler:
+            # 判断是否有处理函数
+            data = await handler.handler(self)
+        
+        if not isinstance(data, str):
             data = json.dumps(data)
+        self.write(data)
         # 有处理函数走处理函数,没有处理函数走data返回
-        self.write(await handler.handler(self) if handler else data)
+        # self.write(await handler.handler(self) if handler else data)
         # 判断是否有token
         if self.token:
             # 存在token就设置协议头
@@ -493,8 +497,7 @@ class MainHandler(web.RequestHandler):
         # 完成请求
         self.finish()
 
-
-def app(routes: list[dict] = config_model["routes"], db: Database = None, redis: Redis = None):
+def make_app(routes: list[dict] = config_model["routes"], db: Optional[Database] = None, redis: Optional[Redis] = None):
     # 初始化应用
     url_specs = []
     # 遍历路由列表
@@ -519,11 +522,11 @@ def app(routes: list[dict] = config_model["routes"], db: Database = None, redis:
         # 获取路由名称,不存在时使用类名
         handler_name = route.get("name", class_str)
         # 添加路由到列表
-        url_specs.append(web.URLSpec(
+        url_specs.append(routing.URLSpec(
             handler_url, handler_class, {"name": handler_name, "db": db, "redis": redis}))
     if not url_specs:
         # 如果路由列表为空，则使用默认路由
-        return app(db=db, redis=redis)
+        return make_app(db=db, redis=redis)
         # 添加路由
     return web.Application(url_specs)
 
@@ -557,9 +560,12 @@ if __name__ == "__main__":
         # 连接数据库
         db = Database(**config_model["database"]
                       [database_type])
+        
+        #异步初始化数据库
+        loop.run_sync(lambda: init(db))
 
         # 初始化应用
-        app = app(routes, db, redis)
+        app = make_app(routes=routes, db=db, redis=redis)
         # 监听服务端口
         app.listen(port)
         log(f"http://localhost:{port}")

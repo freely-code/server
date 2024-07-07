@@ -1,6 +1,7 @@
 #字符串模块
 from datetime import datetime
 from urllib import parse
+import re
 def str2bool(txt:str)->bool:
     print("999")
     # 字符串转逻辑
@@ -69,7 +70,7 @@ def str_middle_all(text, front, back):
         front (str): 前面字符
         back (str): 后面字符
     """
-    return re.findall(f'{front}([\s\S]*?){back}', text)
+    return re.findall(f'{front}([\\s\\S]*?){back}', text)
 
 
 def validate_phone(phone):

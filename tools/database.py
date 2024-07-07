@@ -109,7 +109,7 @@ def kwargs_check(kwargs: dict) -> dict:
     return obj
 
 
-def datetime_to_str(data: list, fields: list = None) -> list:
+def datetime_to_str(data: list, fields: list = []) -> list:
     """将datetime类型转换为字符串
     """
     keys = []
@@ -204,7 +204,7 @@ def where_process(where: str) -> str:
     return where
 
 
-def filter_process(genre: str = "pgsql", sql: str = "", group: str = None, order: str = None, limit: str = None) -> str:
+def filter_process(genre: str = "pgsql", sql: str = "", group: str = "", order: str = "", limit: str = "") -> str:
     """过滤处理,默认为pgsql
 
     Args:
@@ -369,13 +369,13 @@ class Database:
             pass
             os._exit(0)
 
-    def close(self) -> None:
+    def close(self)-> None:
         """关闭_同步
         """
         # 结束事务
         self.transaction_end()
         # 关闭连接
-        self.conn.close()
+        self.conn.close() 
         print(f"{self.genre}数据库连接已关闭")
 
     def transaction_begin(self) -> None:
@@ -385,14 +385,14 @@ class Database:
             # 查看自动提交是否为假,如果是,说明有未结束的事务,先结束它
             self.transaction_end()
             # 将自动提交设置成假,代表开启事务
-            self.conn.autocommit(False)
+            self.conn.autocommit(False)  
             return
 
         # pgsql处理
         # 查看自动提交是否为假,如果是,说明有未结束的事务,先结束它
         self.transaction_end()
         # 将自动提交设置成假,代表开启事务
-        self.conn.autocommit = False
+        self.conn.autocommit = False  
 
     def transaction_end(self, success=False) -> None:
         """结束事务_同步
@@ -403,23 +403,23 @@ class Database:
 
         if self.genre == "mysql":  # mysql处理
             # 判断是否存在事务,自动提交为真,代表不存在事务
-            if self.conn.autocommit_mode:
+            if self.conn.autocommit_mode: 
                 return
             if success:
                 # 提交事务
-                self.conn.commit()
+                self.conn.commit() 
             else:
                 # 回滚事务
-                self.conn.rollback()
-            self.conn.autocommit(True)
+                self.conn.rollback() 
+            self.conn.autocommit(True) 
 
         else:  # pgsql处理
             # 判断是否存在事务,自动提交为真,代表不存在事务
-            if self.conn.autocommit:
+            if self.conn.autocommit: 
                 return
             if success:
                 # 提交事务
-                self.conn.commit()
+                self.conn.commit() 
             else:
                 # 回滚事务
                 self.conn.rollback()
@@ -686,7 +686,7 @@ class Database:
                 f" RETURNING {index}" if index else ""
         return self.execute(sql=sql, result=result)
 
-    def select(self, table_name: str, where: str = None, json_data: dict | list = None, field: str = "*", limit: str = None, order: str = None, group: str = None, schema: str = None, result: dict = {}) -> bool:
+    def select(self, table_name: str, where: str = "", json_data: dict | list = [], field: str = "*", limit: str = "", order: str = "", group: str = "", schema: str = "", result: dict = {}) -> bool:
         """查询_同步
 
         Args:
