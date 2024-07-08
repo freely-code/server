@@ -4,6 +4,7 @@
 Returns:
     _type_: _description_
 """
+
 import os
 import re
 import json
@@ -71,7 +72,8 @@ def kwargs_check(kwargs: dict) -> dict:
         obj["max_queries"] = kwargs.get("max_queries", 5000)
         # 最大连接时间
         obj["max_inactive_connection_lifetime"] = kwargs.get(
-            "max_inactive_connection_lifetime", 300)
+            "max_inactive_connection_lifetime", 300
+        )
         # 调试开关
         obj["debug"] = kwargs.get("debug", False)
 
@@ -110,8 +112,7 @@ def kwargs_check(kwargs: dict) -> dict:
 
 
 def datetime_to_str(data: list, fields: list = []) -> list:
-    """将datetime类型转换为字符串
-    """
+    """将datetime类型转换为字符串"""
     keys = []
     if fields:
         for key in fields:
@@ -172,7 +173,7 @@ def table_name_process(table_name, schema, self_schema) -> str:
 
 def where_process(where: str) -> str:
     """条件处理
-    
+
     Args:
         where (_type_): 条件
 
@@ -188,15 +189,13 @@ def where_process(where: str) -> str:
     # 判断开头是否为AND
     if where.upper().startswith("AND"):
         # 将AND替换成功WHERE
-        where = where.replace(
-            "AND", "WHERE", 1)
+        where = where.replace("AND", "WHERE", 1)
         return f" {where} "
 
     # 如果开头不为AND,判断是否为OR
     if where.upper().startswith("OR"):
         # 将OR替换为WHERE
-        where = where.replace(
-            "OR", "WHERE", 1)
+        where = where.replace("OR", "WHERE", 1)
         return f" {where} "
 
     # 如果没有AND和OR,就在条件前面加上WHERE
@@ -204,7 +203,13 @@ def where_process(where: str) -> str:
     return where
 
 
-def filter_process(genre: str = "pgsql", sql: str = "", group: str = "", order: str = "", limit: str = "") -> str:
+def filter_process(
+    genre: str = "pgsql",
+    sql: str = "",
+    group: str = "",
+    order: str = "",
+    limit: str = "",
+) -> str:
     """过滤处理,默认为pgsql
 
     Args:
@@ -230,7 +235,11 @@ def filter_process(genre: str = "pgsql", sql: str = "", group: str = "", order: 
             if " " in limit and "," not in limit:
                 limit.replace(" ", ",")
         else:
-            if isinstance(limit, str) and "OFFSET" not in limit.upper() and "," in limit:
+            if (
+                isinstance(limit, str)
+                and "OFFSET" not in limit.upper()
+                and "," in limit
+            ):
                 limit.replace(",", " OFFSET ")
         sql += f" LIMIT {limit}"
     return sql
@@ -238,8 +247,7 @@ def filter_process(genre: str = "pgsql", sql: str = "", group: str = "", order: 
 
 class Database:
     def __init__(self, **kwargs) -> None:
-        """初始化
-        """
+        """初始化"""
         # 赋值参数
         self.kwargs = kwargs_check(kwargs)
 
@@ -268,7 +276,7 @@ class Database:
                 "default": "",
                 "null": False,
                 "length": "",
-                "index": ""
+                "index": "",
             }
         if self.pool:
             self.transaction = None
@@ -325,7 +333,7 @@ class Database:
             # 连接数据库
             self.connect()
 
-# ====同步====
+    # ====同步====
     def connect(self) -> None:
         """连接数据库_同步
 
@@ -369,30 +377,28 @@ class Database:
             pass
             os._exit(0)
 
-    def close(self)-> None:
-        """关闭_同步
-        """
+    def close(self) -> None:
+        """关闭_同步"""
         # 结束事务
         self.transaction_end()
         # 关闭连接
-        self.conn.close() 
+        self.conn.close()
         print(f"{self.genre}数据库连接已关闭")
 
     def transaction_begin(self) -> None:
-        """开始事务_同步
-        """
+        """开始事务_同步"""
         if self.genre == "mysql":  # mysql处理
             # 查看自动提交是否为假,如果是,说明有未结束的事务,先结束它
             self.transaction_end()
             # 将自动提交设置成假,代表开启事务
-            self.conn.autocommit(False)  
+            self.conn.autocommit(False)
             return
 
         # pgsql处理
         # 查看自动提交是否为假,如果是,说明有未结束的事务,先结束它
         self.transaction_end()
         # 将自动提交设置成假,代表开启事务
-        self.conn.autocommit = False  
+        self.conn.autocommit = False
 
     def transaction_end(self, success=False) -> None:
         """结束事务_同步
@@ -403,23 +409,23 @@ class Database:
 
         if self.genre == "mysql":  # mysql处理
             # 判断是否存在事务,自动提交为真,代表不存在事务
-            if self.conn.autocommit_mode: 
+            if self.conn.autocommit_mode:
                 return
             if success:
                 # 提交事务
-                self.conn.commit() 
+                self.conn.commit()
             else:
                 # 回滚事务
-                self.conn.rollback() 
-            self.conn.autocommit(True) 
+                self.conn.rollback()
+            self.conn.autocommit(True)
 
         else:  # pgsql处理
             # 判断是否存在事务,自动提交为真,代表不存在事务
-            if self.conn.autocommit: 
+            if self.conn.autocommit:
                 return
             if success:
                 # 提交事务
-                self.conn.commit() 
+                self.conn.commit()
             else:
                 # 回滚事务
                 self.conn.rollback()
@@ -458,7 +464,10 @@ class Database:
         if need_total:
             # 查询总数
             # 未查询到数量
-            if not self.total(sql=sql, result=result) or result["data"][0]["total"] == 0:
+            if (
+                not self.total(sql=sql, result=result)
+                or result["data"][0]["total"] == 0
+            ):
                 # 回滚
                 self.transaction_end()
                 # 直接返回
@@ -471,8 +480,11 @@ class Database:
                 result["sql"] = sql
 
         # 取一个游标
-        cursor = self.conn.cursor(
-            cursor=pymysql.cursors.DictCursor) if self.genre == "mysql" else self.conn.cursor()
+        cursor = (
+            self.conn.cursor(cursor=pymysql.cursors.DictCursor)
+            if self.genre == "mysql"
+            else self.conn.cursor()
+        )
         try:
             if self.genre == "mysql":  # mysql处理
                 # 执行语句
@@ -484,9 +496,9 @@ class Database:
             data = []
             if self.genre == "mysql":  # mysql处理
                 # 拿到数据
-                if ("SELECT" in sql.upper()):  # 查询
+                if "SELECT" in sql.upper():  # 查询
                     data = cursor.fetchall()
-                elif ("TRUNCATE" in sql.upper()):  # 清空
+                elif "TRUNCATE" in sql.upper():  # 清空
                     return True
                 else:  # 执行
                     if cursor.rowcount > 0:
@@ -545,13 +557,27 @@ class Database:
         sql = replace_text(sql, r"ORDER BY([\s]+)([\S]+)([\w]+)", "")
         # sql = replace_text(sql, r"LIMIT([\s]+)([\d]+),([\d]+)", "") if self.genre == "mysql" else self.__replace_text(
         #     sql, r"LIMIT([\s]+)([\S]+)([\]+)([\s]+)([\w]+)([\s]+)([\d]+)", "")
-        sql = replace_text(sql, r"LIMIT([\s]+)([\d]+)(,*)([\s]*)([\d]*)", "") if self.genre == "mysql" else self.__replace_text(
-            sql, r"LIMIT([\s]+)([\S]+)([\]+)([\s]+)([\w]+)([\s]+)([\d]+)", "")
+        sql = (
+            replace_text(sql, r"LIMIT([\s]+)([\d]+)(,*)([\s]*)([\d]*)", "")
+            if self.genre == "mysql"
+            else self.__replace_text(
+                sql, r"LIMIT([\s]+)([\S]+)([\]+)([\s]+)([\w]+)([\s]+)([\d]+)", ""
+            )
+        )
         sql = sql.lstrip().rstrip()
         # 执行并返回
         return self.execute(sql=sql, result=result)
 
-    def insert(self, table_name: str, key: str = "", value: str = "", json_data: dict | list = [], schema=None, index: str = "", result: dict = {}) -> bool:
+    def insert(
+        self,
+        table_name: str,
+        key: str = "",
+        value: str = "",
+        json_data: dict | list = [],
+        schema=None,
+        index: str = "",
+        result: dict = {},
+    ) -> bool:
         """插入_同步
         Args:
             table (str): 表名
@@ -579,7 +605,13 @@ class Database:
                 for item in json_data:
                     # 将取出的对象值进行判断是否为对象或列表,如果是,将其转成文本,并加入临时列表
                     tem_list.append(
-                        "("+",".join(f"'{json.dumps(i,ensure_ascii=False) if isinstance(i, dict) or isinstance(i, list) else str(i)}'" for i in item.values())+")")
+                        "("
+                        + ",".join(
+                            f"'{json.dumps(i,ensure_ascii=False) if isinstance(i, dict) or isinstance(i, list) else str(i)}'"
+                            for i in item.values()
+                        )
+                        + ")"
+                    )
                 value = ",".join(tem_list)
 
                 if self.genre == "mysql":
@@ -621,12 +653,18 @@ class Database:
         if self.genre == "mysql":
             sql = f"INSERT IGNORE INTO {table_name} ({key}) VALUES {value}"
         else:
-            sql = f"INSERT INTO {table_name} ({key}) VALUES {value} ON CONFLICT DO NOTHING" + \
-                f" RETURNING {index}" if index else ""
+            sql = (
+                f"INSERT INTO {table_name} ({key}) VALUES {value} ON CONFLICT DO NOTHING"
+                + f" RETURNING {index}"
+                if index
+                else ""
+            )
 
-        return self.execute(sql=sql,  result=result)
+        return self.execute(sql=sql, result=result)
 
-    def delete(self, table_name: str, where: str = "", schema: str = "", result: dict = {}) -> bool:
+    def delete(
+        self, table_name: str, where: str = "", schema: str = "", result: dict = {}
+    ) -> bool:
         """删除_同步
 
         Args:
@@ -649,9 +687,18 @@ class Database:
         table_name = table_name_process(table_name, schema, self.schema)
         # 拼接语句
         sql = f"DELETE FROM {table_name}{where}"
-        return self.execute(sql=sql,  result=result)
+        return self.execute(sql=sql, result=result)
 
-    def update(self, table_name: str, where: str = "", kv: str = "", json_data: dict | list = [], schema: str = "", index: str = "", result: dict = {}) -> bool:
+    def update(
+        self,
+        table_name: str,
+        where: str = "",
+        kv: str = "",
+        json_data: dict | list = [],
+        schema: str = "",
+        index: str = "",
+        result: dict = {},
+    ) -> bool:
         """更新_同步
 
         Args:
@@ -682,11 +729,21 @@ class Database:
         # 拼接语句
         sql = f"UPDATE {table_name} SET {kv}{where}"
         if self.genre == "pgsql":
-            sql += f" ON CONFLICT DO NOTHING" + \
-                f" RETURNING {index}" if index else ""
+            sql += " ON CONFLICT DO NOTHING" + f" RETURNING {index}" if index else ""
         return self.execute(sql=sql, result=result)
 
-    def select(self, table_name: str, where: str = "", json_data: dict | list = [], field: str = "*", limit: str = "", order: str = "", group: str = "", schema: str = "", result: dict = {}) -> bool:
+    def select(
+        self,
+        table_name: str,
+        where: str = "",
+        json_data: dict | list = [],
+        field: str = "*",
+        limit: str = "",
+        order: str = "",
+        group: str = "",
+        schema: str = "",
+        result: dict = {},
+    ) -> bool:
         """查询_同步
 
         Args:
@@ -709,14 +766,19 @@ class Database:
         table_name = table_name_process(table_name, schema, self.schema)
         # 处理过滤
         sql = filter_process(
-            genre=self.genre, sql=f"SELECT {field} FROM {table_name}{where}", group=group, order=order, limit=limit)
+            genre=self.genre,
+            sql=f"SELECT {field} FROM {table_name}{where}",
+            group=group,
+            order=order,
+            limit=limit,
+        )
 
         # 如果对象数据不为空,那么就自动替换条件里的参数
         if json_data:
             for key, value in json_data.items():
                 sql = sql.replace(f"`{key}`", f"'{value}'")
 
-        return self.execute(sql=sql,  result=result)
+        return self.execute(sql=sql, result=result)
 
     def truncate(self, table_name: str, schema: str = "", result: dict = {}) -> bool:
         """清空_同步
@@ -745,8 +807,7 @@ class Database:
         return self.execute(sql=sql, result=result)
 
     def schemas_get(self, result: dict = {}) -> bool:
-        """获取架构_同步
-        """
+        """获取架构_同步"""
         if self.genre == "mysql":
             pass
         else:
@@ -754,8 +815,7 @@ class Database:
         return self.execute(sql=sql, result=result)
 
     def schema_get_now(self, result: dict = {}) -> bool:
-        """获取当前架构_同步
-        """
+        """获取当前架构_同步"""
         if self.genre == "mysql":
             pass
         else:
@@ -763,8 +823,7 @@ class Database:
         return self.execute(sql=sql, result=result)
 
     def schema_create(self, schema: str, result: dict = {}) -> bool:
-        """创建架构_同步
-        """
+        """创建架构_同步"""
         sql = f"CREATE SCHEMA {schema}"
         return self.execute(sql=sql, result=result)
 
@@ -777,7 +836,9 @@ class Database:
         sql = f"DROP SCHEMA {schema}"
         return self.execute(sql=sql, result=result)
 
-    def schema_rename(self, old_name: str, new_name: str = "", result: dict = {}) -> bool:
+    def schema_rename(
+        self, old_name: str, new_name: str = "", result: dict = {}
+    ) -> bool:
         """重命名架构_同步
         old_name为空时,修改当前schema,schema不为空时,修改传入的schema
         """
@@ -786,9 +847,15 @@ class Database:
         sql = f"ALTER SCHEMA {old_name} RENAME TO {new_name}"
         return self.execute(sql=sql, result=result)
 
-    def table_create(self,  table_name: str, fields: list, table_remark: str = "", schema: str = "", result: dict = {}) -> bool:
-        """创建表_同步
-        """
+    def table_create(
+        self,
+        table_name: str,
+        fields: list,
+        table_remark: str = "",
+        schema: str = "",
+        result: dict = {},
+    ) -> bool:
+        """创建表_同步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -800,15 +867,15 @@ class Database:
             update_time = ""
             for field in fields:  # 获取字段名，如果没有则默认为空
                 field_name = field.get("name", "")
-# 获取字段类型，如果没有则默认为None
+                # 获取字段类型，如果没有则默认为None
                 field_type = field.get("type", None)
-# 获取字段注释，如果没有则默认为空
+                # 获取字段注释，如果没有则默认为空
                 field_remark = field.get("remark", "")
-# 获取字段是否为键，如果没有则默认为False
+                # 获取字段是否为键，如果没有则默认为False
                 field_key = field.get("key", False)
-# 获取字段默认值，如果没有则默认为空
+                # 获取字段默认值，如果没有则默认为空
                 field_default = field.get("default", "")
-# 获取字段长度，如果没有则默认为None
+                # 获取字段长度，如果没有则默认为None
                 field_length = field.get("length", None)
                 field_null = field.get("null", False)  # 是否为空
                 # 索引类型  UNIQUE唯一索引 INDEX普通索引 None不用索引
@@ -849,7 +916,9 @@ class Database:
                     elif field_type in ["character", "char"]:
                         field_default = "''::bpchar"
                     elif field_type in "timestamp":
-                        field_default = "'0000-00-00 00:00:00'::timestamp without time zone"
+                        field_default = (
+                            "'0000-00-00 00:00:00'::timestamp without time zone"
+                        )
                     elif field_type in "inet":
                         field_default = "'0.0.0.0'::inet"
                     else:
@@ -875,7 +944,9 @@ class Database:
                 sql += update_time
         return self.execute(sql=sql, result=result)
 
-    def table_rename(self, old_name: str, new_name: str = "", schema: str = "", result: dict = {}) -> bool:
+    def table_rename(
+        self, old_name: str, new_name: str = "", schema: str = "", result: dict = {}
+    ) -> bool:
         """重命名表_同步
         old_name为空时,修改当前schema,schema不为空时,修改传入的schema
         """
@@ -884,7 +955,14 @@ class Database:
         sql = f"ALTER TABLE {schema}.{old_name} RENAME TO 1{new_name}"
         return self.execute(sql=sql, result=result)
 
-    def table_copy(self, old_table_name: str, old_schema: str = "", new_table_name: str = "", new_schema: str = "",  result: dict = {}) -> bool:
+    def table_copy(
+        self,
+        old_table_name: str,
+        old_schema: str = "",
+        new_table_name: str = "",
+        new_schema: str = "",
+        result: dict = {},
+    ) -> bool:
         """复制表_同步
         old_schema为空时,复制当前schema的表,old_schema不为空时,复制传入的schema的表 new_table_name为空时,则使用old_table_name+copy命名
         """
@@ -895,7 +973,7 @@ class Database:
             new_schema = old_schema
 
         if not new_table_name:
-            new_table_name = f'{old_table_name}_copy'
+            new_table_name = f"{old_table_name}_copy"
 
         if self.genre == "mysql":
             pass
@@ -903,9 +981,10 @@ class Database:
             sql = f"CREATE TABLE {new_schema}.{new_table_name} AS SELECT * FROM {old_schema}.{old_table_name}"
         return self.execute(sql=sql, result=result)
 
-    def tables_get(self, schema: str = "", table_name: str = "", result: dict = {}) -> bool:
-        """获取表名_同步
-        """
+    def tables_get(
+        self, schema: str = "", table_name: str = "", result: dict = {}
+    ) -> bool:
+        """获取表名_同步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -917,9 +996,14 @@ class Database:
                 sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
         return self.execute(sql=sql, result=result)
 
-    def table_drop(self, table_name: str = "", schema: str = "", cascade: bool = False, result: dict = {}) -> bool:
-        """表删除_同步
-        """
+    def table_drop(
+        self,
+        table_name: str = "",
+        schema: str = "",
+        cascade: bool = False,
+        result: dict = {},
+    ) -> bool:
+        """表删除_同步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -931,9 +1015,10 @@ class Database:
                 sql = f"DROP TABLE IF EXISTS {schema}.{table_name}"
         return self.execute(sql=sql, result=result)
 
-    def fields_get(self, table_name: str = "", schema: str = "",  result: dict = {}) -> bool:
-        """获取字段名_同步
-        """
+    def fields_get(
+        self, table_name: str = "", schema: str = "", result: dict = {}
+    ) -> bool:
+        """获取字段名_同步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -942,9 +1027,10 @@ class Database:
             sql = f"SELECT \"column_name\" FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table_name}'"
         return self.execute(sql=sql, result=result)
 
-    def fun_uuid_create(self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}) -> bool:
-        """创建uid函数_同步
-        """
+    def fun_uuid_create(
+        self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}
+    ) -> bool:
+        """创建uid函数_同步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -953,9 +1039,10 @@ class Database:
             sql = f"CREATE OR REPLACE FUNCTION {schema}.{fun_name}() RETURNS character LANGUAGE plpgsql AS $BODY$ BEGIN RETURN SUBSTRING(REPLACE(gen_random_uuid()::varchar, '-' ,'' ), 8, 16); END; $BODY$;"
         return self.execute(sql=sql, result=result)
 
-    def fun_uuid_drop(self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}) -> bool:
-        """删除uid函数_同步
-        """
+    def fun_uuid_drop(
+        self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}
+    ) -> bool:
+        """删除uid函数_同步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -965,8 +1052,7 @@ class Database:
         return self.execute(sql=sql, result=result)
 
     def funs_get(self, fun_name: str = "", schema: str = "", result: dict = {}) -> bool:
-        """函数列表获取_同步
-        """
+        """函数列表获取_同步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -979,23 +1065,32 @@ class Database:
 
         return self.execute(sql=sql, result=result)
 
-    def index_create(self, table_name: str, fields_name: str, schema: str = "", index_type: str = "", index_name: str = "", result: dict = {}) -> bool:
-        """创建索引_同步
-        """
+    def index_create(
+        self,
+        table_name: str,
+        fields_name: str,
+        schema: str = "",
+        index_type: str = "",
+        index_name: str = "",
+        result: dict = {},
+    ) -> bool:
+        """创建索引_同步"""
         if not schema:
             schema = self.schema
         if not index_name:
-            index_name = f'{fields_name}_index'
+            index_name = f"{fields_name}_index"
         if self.genre == "mysql":
             pass
         else:
             sql = f"CREATE {index_type} INDEX {index_name} ON {schema}.{table_name} ({fields_name});"
         return self.execute(sql=sql, result=result)
 
-    def extension_create(self, extname: str,  schema: str = "", result: dict = {}) -> bool:
+    def extension_create(
+        self, extname: str, schema: str = "", result: dict = {}
+    ) -> bool:
         """创建扩展_同步
-            不存在则创建 存在则无视
-            extname:扩展名  例---> ltree
+        不存在则创建 存在则无视
+        extname:扩展名  例---> ltree
         """
         if self.genre == "mysql":
             pass
@@ -1003,10 +1098,10 @@ class Database:
             sql = f"CREATE EXTENSION IF NOT EXISTS {extname};"
         return self.execute(sql=sql, result=result)
 
-    def extensions_get(self, extname: str,  result: dict = {}) -> bool:
+    def extensions_get(self, extname: str, result: dict = {}) -> bool:
         """扩展列表获取_同步
-            不存在则创建 存在则无视
-            extname:扩展名  例---> ltree
+        不存在则创建 存在则无视
+        extname:扩展名  例---> ltree
         """
         if self.genre == "mysql":
             pass
@@ -1014,7 +1109,7 @@ class Database:
             sql = f"SELECT * FROM pg_extension WHERE extname = '{extname}';"
         return self.execute(sql=sql, result=result)
 
-# ====异步====
+    # ====异步====
 
     async def connect_async(self) -> None:
         """连接数据库_异步
@@ -1023,7 +1118,11 @@ class Database:
             _type_: _description_
         """
         try:
-            self.pool = await aiomysql.create_pool(**self.kwargs) if self.genre == "mysql" else await asyncpg.create_pool(**self.kwargs)
+            self.pool = (
+                await aiomysql.create_pool(**self.kwargs)
+                if self.genre == "mysql"
+                else await asyncpg.create_pool(**self.kwargs)
+            )
             # print(f"{self.genre}连接成功")
         except Exception as e:
             print(f"{self.genre}连接失败:{str(e)}")
@@ -1031,8 +1130,7 @@ class Database:
             # os._exit(0)
 
     async def close_async(self) -> None:
-        """关闭_异步
-        """
+        """关闭_异步"""
         # 关闭事务
         await self.transaction_end_async()
         # 关闭连接池
@@ -1041,8 +1139,7 @@ class Database:
         self.loop.stop()
 
     async def transaction_begin_async(self) -> None:
-        """开始事务_异步
-        """
+        """开始事务_异步"""
         # 开始之前先结束事务
         await self.transaction_end_async()
         # 获取一个连接
@@ -1074,8 +1171,7 @@ class Database:
                     self.conn.commit()
                 else:
                     # 回滚事务
-                    #await self.conn.rollback()
-                    self.conn.rollback()
+                    await self.conn.rollback()
                 # 关闭连接
                 self.conn.close()
                 self.conn = None
@@ -1090,8 +1186,7 @@ class Database:
                     # 回滚事务
                     await self.transaction.rollback()
                 # 关闭连接
-                #await self.conn.close()
-                self.conn.close()
+                await self.conn.close()
                 self.conn = None
                 self.transaction = None
 
@@ -1128,7 +1223,10 @@ class Database:
         if need_total:
             # 查询总数
             # 未查询到数量
-            if not await self.total_async(sql=sql, result=result) or result["data"][0]["total"] == 0:
+            if (
+                not await self.total_async(sql=sql, result=result)
+                or result["data"][0]["total"] == 0
+            ):
                 # 回滚
                 await self.transaction_end_async()
                 # 直接返回
@@ -1141,7 +1239,11 @@ class Database:
                 result["sql"] = sql
 
         # 判断conn是否为空,从而判断是否有事务,如果没有事务,就从连接池获取一个连接,如果有事务,就将事务连接赋值给变量
-        conn = self.conn if self.conn else await self.pool.acquire()
+        try:
+            conn = self.conn if self.conn else await self.pool.acquire()
+        except Exception as e:
+            result["error"] = str(e)
+            return False
 
         # 判断连接类型
         if self.genre == "mysql":  # mysql处理
@@ -1156,18 +1258,23 @@ class Database:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore")
                             await cursor.execute(sql)
-                            if ("TRUNCATE" in sql.upper()):  # 清空,因为不会有数量返回,所以放在了数量判断的前面
+                            if (
+                                "TRUNCATE" in sql.upper()
+                            ):  # 清空,因为不会有数量返回,所以放在了数量判断的前面
                                 return True
                             if cursor.rowcount == 0:  # 未获取到数据
                                 # 回滚
                                 raise Exception("未获取到数据")
 
                             # 拿到数据
-                            if ("SELECT" in sql.upper()):  # 查询
+                            if "SELECT" in sql.upper():  # 查询
                                 data = await cursor.fetchall()
                                 data = datetime_to_str(
-                                    data=data, fields=cursor.description)
-                            elif ("UPDATE" in sql.upper() or "DELETE" in sql.upper()):  # 更新或删除
+                                    data=data, fields=cursor.description
+                                )
+                            elif (
+                                "UPDATE" in sql.upper() or "DELETE" in sql.upper()
+                            ):  # 更新或删除
                                 data = [{"total": cursor.rowcount}]
                             else:  # 执行
                                 data = [{"id": cursor.lastrowid}]
@@ -1187,7 +1294,7 @@ class Database:
 
         else:  # pgsql处理
             # 判断是否为查询语句,或者是否需要返回ID,如果是则走fetch,否则走execute
-            if ("SELECT" in sql.upper() or "RETURNING" in sql.upper()):
+            if "SELECT" in sql.upper() or "RETURNING" in sql.upper():
                 # 获取一个锁
                 async with self.lock:
                     try:  # 异常块
@@ -1211,8 +1318,7 @@ class Database:
                     finally:  # 最终
                         if not self.conn:
                             # 没有事务,关闭连接
-                            #await conn.close()
-                            conn.close()
+                            await conn.close()
 
             # 不带索引的执行语句
             async with self.lock:  # 获取一个锁
@@ -1221,9 +1327,9 @@ class Database:
                     data = await conn.execute(sql)
                     # 解析数据
                     arr = data.split(" ")
-                    if arr[0] == 'SELECT':
+                    if arr[0] == "SELECT":
                         total = int(arr[1])
-                    elif arr[0] == 'INSERT':
+                    elif arr[0] == "INSERT":
                         total = int(arr[2])
                     else:
                         total = arr
@@ -1246,8 +1352,7 @@ class Database:
                 finally:  # 最终
                     if not self.conn:
                         # 没有事务,关闭连接
-                        #await conn.close()
-                        conn.close()
+                        await conn.close()
 
     async def total_async(self, sql: str, result: dict = {}) -> bool:
         """查询总数_同步
@@ -1265,14 +1370,28 @@ class Database:
         sql = replace_text(sql, r"(?<=SELECT).*?(?=FROM)", " COUNT(1) total ")
         sql = replace_text(sql, r"GROUP BY([\s]+)([\S]+)([\w]+)", "")
         sql = replace_text(sql, r"ORDER BY([\s]+)([\S]+)([\w]+)", "")
-        sql = replace_text(sql, r"LIMIT([\s]+)([\d]+)(,*)([\s]*)([\d]*)", "") if self.genre == "mysql" else self.__replace_text(
-            sql, r"LIMIT([\s]+)([\S]+)([\]+)([\s]+)([\w]+)([\s]+)([\d]+)", "")
+        sql = (
+            replace_text(sql, r"LIMIT([\s]+)([\d]+)(,*)([\s]*)([\d]*)", "")
+            if self.genre == "mysql"
+            else self.__replace_text(
+                sql, r"LIMIT([\s]+)([\S]+)([\]+)([\s]+)([\w]+)([\s]+)([\d]+)", ""
+            )
+        )
 
         sql = sql.lstrip().rstrip()
         # 执行并返回
         return await self.execute_async(sql=sql, result=result)
 
-    async def insert_async(self, table_name: str, key: str = "", value: str = "", json_data: dict | list = [], schema="", index: str = "", result: dict = {}) -> bool:
+    async def insert_async(
+        self,
+        table_name: str,
+        key: str = "",
+        value: str = "",
+        json_data: dict | list = [],
+        schema="",
+        index: str = "",
+        result: dict = {},
+    ) -> bool:
         """插入_同步
         Args:
             table (str): 表名
@@ -1300,7 +1419,13 @@ class Database:
                 for item in json_data:
                     # 将取出的对象值进行判断是否为对象或列表,如果是,将其转成文本,并加入临时列表
                     tem_list.append(
-                        "("+",".join(f"'{json.dumps(i,ensure_ascii=False) if isinstance(i, dict) or isinstance(i, list) else str(i)}'" for i in item.values())+")")
+                        "("
+                        + ",".join(
+                            f"'{json.dumps(i,ensure_ascii=False) if isinstance(i, dict) or isinstance(i, list) else str(i)}'"
+                            for i in item.values()
+                        )
+                        + ")"
+                    )
                 value = ",".join(tem_list)
 
                 if self.genre == "mysql":
@@ -1342,12 +1467,18 @@ class Database:
         if self.genre == "mysql":
             sql = f"INSERT IGNORE INTO {table_name} ({key}) VALUES {value}"
         else:
-            sql = f"INSERT INTO {table_name} ({key}) VALUES {value} ON CONFLICT DO NOTHING" + \
-                f" RETURNING {index}" if index else ""
+            sql = (
+                f"INSERT INTO {table_name} ({key}) VALUES {value} ON CONFLICT DO NOTHING"
+                + f" RETURNING {index}"
+                if index
+                else ""
+            )
 
-        return await self.execute_async(sql=sql,  result=result)
+        return await self.execute_async(sql=sql, result=result)
 
-    async def delete_async(self, table_name: str, where: str = "", schema: str = "", result: dict = {}) -> bool:
+    async def delete_async(
+        self, table_name: str, where: str = "", schema: str = "", result: dict = {}
+    ) -> bool:
         """删除_异步
 
         Args:
@@ -1371,9 +1502,18 @@ class Database:
         table_name = table_name_process(table_name, schema, self.schema)
         # 拼接语句
         sql = f"DELETE FROM {table_name}{where}"
-        return await self.execute_async(sql=sql,  result=result)
+        return await self.execute_async(sql=sql, result=result)
 
-    async def update_async(self, table_name: str, where: str = "", kv: str = "", json_data: dict | list = [], schema: str = "", index: str = "", result: dict = {}) -> bool:
+    async def update_async(
+        self,
+        table_name: str,
+        where: str = "",
+        kv: str = "",
+        json_data: dict | list = [],
+        schema: str = "",
+        index: str = "",
+        result: dict = {},
+    ) -> bool:
         """更新_异步
 
         Args:
@@ -1404,11 +1544,21 @@ class Database:
         # 拼接语句
         sql = f"UPDATE {table_name} SET {kv}{where}"
         if self.genre == "pgsql":
-            sql += f" ON CONFLICT DO NOTHING" + \
-                f" RETURNING {index}" if index else ""
+            sql += " ON CONFLICT DO NOTHING" + f" RETURNING {index}" if index else ""
         return await self.execute_async(sql=sql, result=result)
 
-    async def select_async(self, table_name: str, where: str = "", json_data: dict | list = [], field: str = "*", limit: str = "", order: str = "", group: str = "", schema: str = "", result: dict = {}) -> bool:
+    async def select_async(
+        self,
+        table_name: str,
+        where: str = "",
+        json_data: dict | list = [],
+        field: str = "*",
+        limit: str = "",
+        order: str = "",
+        group: str = "",
+        schema: str = "",
+        result: dict = {},
+    ) -> bool:
         """查询_异步
 
         Args:
@@ -1430,17 +1580,24 @@ class Database:
         # 处理表名
         table_name = table_name_process(table_name, schema, self.schema)
         # 处理过滤
-        sql = filter_process(genre=self.genre,
-                             sql=f"SELECT {field} FROM {table_name}{where}", group=group, order=order, limit=limit)
+        sql = filter_process(
+            genre=self.genre,
+            sql=f"SELECT {field} FROM {table_name}{where}",
+            group=group,
+            order=order,
+            limit=limit,
+        )
 
         # 如果对象数据不为空,那么就自动替换条件里的参数
         if json_data:
             for key, value in json_data.items():
                 sql = sql.replace(f"`{key}`", f"'{value}'")
 
-        return await self.execute_async(sql=sql,  result=result)
+        return await self.execute_async(sql=sql, result=result)
 
-    async def truncate_async(self, table_name: str, schema: str = "", result: dict = {}) -> bool:
+    async def truncate_async(
+        self, table_name: str, schema: str = "", result: dict = {}
+    ) -> bool:
         """清空_异步
 
         Args:
@@ -1452,7 +1609,9 @@ class Database:
         """
         # 处理表名
         table_name = table_name_process(table_name, schema, self.schema)
-        return await self.execute_async(sql=f"TRUNCATE TABLE {table_name}", result=result)
+        return await self.execute_async(
+            sql=f"TRUNCATE TABLE {table_name}", result=result
+        )
 
     async def database_get_async(self, result: dict = {}) -> bool:
         """获取数据库名_异步
@@ -1463,12 +1622,11 @@ class Database:
         if self.genre == "mysql":
             pass
         else:
-            sql = f"SELECT datname AS database_name FROM pg_database WHERE datname NOT LIKE 'template%'"
+            sql = "SELECT datname AS database_name FROM pg_database WHERE datname NOT LIKE 'template%'"
         return await self.execute_async(sql=sql, result=result)
 
     async def schema_create_async(self, schema: str, result: dict = {}) -> bool:
-        """创建架构_异步
-        """
+        """创建架构_异步"""
 
         sql = f"CREATE SCHEMA {schema}"
         return await self.execute_async(sql=sql, result=result)
@@ -1482,7 +1640,9 @@ class Database:
         sql = f"DROP SCHEMA {schema}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def schema_rename_async(self, old_name: str, new_name: str = "", result: dict = {}) -> bool:
+    async def schema_rename_async(
+        self, old_name: str, new_name: str = "", result: dict = {}
+    ) -> bool:
         """重命名架构_异步
         old_name为空时,修改当前schema,schema不为空时,修改传入的schema
         """
@@ -1498,22 +1658,31 @@ class Database:
         if self.genre == "mysql":
             pass
         else:
-            temp = f"= '{schema}'" if schema else "NOT IN('pg_toast','pg_catalog','information_schema')"
-            sql = f"SELECT schema_name FROM information_schema.schemata WHERE \"schema_name\" {temp}"
+            temp = (
+                f"= '{schema}'"
+                if schema
+                else "NOT IN('pg_toast','pg_catalog','information_schema')"
+            )
+            sql = f'SELECT schema_name FROM information_schema.schemata WHERE "schema_name" {temp}'
         return await self.execute_async(sql=sql, result=result)
 
     async def schema_get_now_async(self, result: dict = {}) -> bool:
-        """获取当前架构_异步
-        """
+        """获取当前架构_异步"""
         if self.genre == "mysql":
             pass
         else:
             sql = "SHOW search_path"
         return await self.execute_async(sql=sql, result=result)
 
-    async def table_create_async(self,  table_name: str, fields: list, table_remark: str = "", schema: str = "", result: dict = {}) -> bool:
-        """创建表_异步
-        """
+    async def table_create_async(
+        self,
+        table_name: str,
+        fields: list,
+        table_remark: str = "",
+        schema: str = "",
+        result: dict = {},
+    ) -> bool:
+        """创建表_异步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -1525,15 +1694,15 @@ class Database:
             update_time = ""
             for field in fields:  # 获取字段名，如果没有则默认为空
                 field_name = field.get("name", "")
-# 获取字段类型，如果没有则默认为None
+                # 获取字段类型，如果没有则默认为None
                 field_type = field.get("type", None)
-# 获取字段注释，如果没有则默认为空
+                # 获取字段注释，如果没有则默认为空
                 field_remark = field.get("remark", "")
-# 获取字段是否为键，如果没有则默认为False
+                # 获取字段是否为键，如果没有则默认为False
                 field_key = field.get("key", False)
-# 获取字段默认值，如果没有则默认为空
+                # 获取字段默认值，如果没有则默认为空
                 field_default = field.get("default", "")
-# 获取字段长度，如果没有则默认为None
+                # 获取字段长度，如果没有则默认为None
                 field_length = field.get("length", None)
                 field_null = field.get("null", False)  # 是否为空
                 # 索引类型  UNIQUE唯一索引 INDEX普通索引 None不用索引
@@ -1574,7 +1743,9 @@ class Database:
                     elif field_type in ["character", "char"]:
                         field_default = "''::bpchar"
                     elif field_type in "timestamp":
-                        field_default = "'0000-00-00 00:00:00'::timestamp without time zone"
+                        field_default = (
+                            "'0000-00-00 00:00:00'::timestamp without time zone"
+                        )
                     elif field_type in "inet":
                         field_default = "'0.0.0'::inet"
                     else:
@@ -1601,7 +1772,9 @@ class Database:
 
         return await self.execute_async(sql=sql, result=result)
 
-    async def table_rename_async(self, old_name: str, new_name: str = "", schema: str = "", result: dict = {}) -> bool:
+    async def table_rename_async(
+        self, old_name: str, new_name: str = "", schema: str = "", result: dict = {}
+    ) -> bool:
         """重命名表_异步
         old_name为空时,修改当前schema,schema不为空时,修改传入的schema
         """
@@ -1610,9 +1783,10 @@ class Database:
         sql = f"ALTER TABLE {schema}.{old_name} RENAME TO 1{new_name}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def tables_get_async(self, schema: str = "", table_name: str = "", result: dict = {}) -> bool:
-        """获取表名_异步
-        """
+    async def tables_get_async(
+        self, schema: str = "", table_name: str = "", result: dict = {}
+    ) -> bool:
+        """获取表名_异步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -1624,7 +1798,14 @@ class Database:
                 sql = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
         return await self.execute_async(sql=sql, result=result)
 
-    async def table_copy_async(self, old_table_name: str, old_schema: str = "", new_table_name: str = "", new_schema: str = "",  result: dict = {}) -> bool:
+    async def table_copy_async(
+        self,
+        old_table_name: str,
+        old_schema: str = "",
+        new_table_name: str = "",
+        new_schema: str = "",
+        result: dict = {},
+    ) -> bool:
         """复制表_异步
         old_schema为空时,复制当前schema的表,old_schema不为空时,复制传入的schema的表 new_table_name为空时,则使用old_table+copy命名
         """
@@ -1635,7 +1816,7 @@ class Database:
             new_schema = old_schema
 
         if not new_table_name:
-            new_table_name = f'{old_table_name}_copy'
+            new_table_name = f"{old_table_name}_copy"
 
         if self.genre == "mysql":
             pass
@@ -1643,9 +1824,14 @@ class Database:
             sql = f"CREATE TABLE {new_schema}.{new_table_name} AS SELECT * FROM {old_schema}.{old_table_name}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def table_drop_async(self, table_name: str = "", schema: str = "", cascade: bool = False, result: dict = {}) -> bool:
-        """表删除_异步
-        """
+    async def table_drop_async(
+        self,
+        table_name: str = "",
+        schema: str = "",
+        cascade: bool = False,
+        result: dict = {},
+    ) -> bool:
+        """表删除_异步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -1657,7 +1843,9 @@ class Database:
                 sql = f"DROP TABLE IF EXISTS {schema}.{table_name}"
         return await self.execute_async(sql=sql, result=result)
 
-    async def fields_get_async(self, table_name: str, schema: str = "", result: dict = {}) -> bool:
+    async def fields_get_async(
+        self, table_name: str, schema: str = "", result: dict = {}
+    ) -> bool:
         # 获取字段_异步
         if not schema:
             schema = self.schema
@@ -1669,9 +1857,10 @@ class Database:
 
         # 创建一个新的函数来创建模式
 
-    async def fun_uuid_create_async(self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}) -> bool:
-        """创建uid函数_异步
-        """
+    async def fun_uuid_create_async(
+        self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}
+    ) -> bool:
+        """创建uid函数_异步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -1680,9 +1869,10 @@ class Database:
             sql = f"CREATE OR REPLACE FUNCTION {schema}.{fun_name}() RETURNS character LANGUAGE plpgsql AS $BODY$ BEGIN RETURN SUBSTRING(REPLACE(gen_random_uuid()::varchar, '-' ,'' ), 8, 16); END; $BODY$;"
         return await self.execute_async(sql=sql, result=result)
 
-    async def fun_uuid_drop_async(self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}) -> bool:
-        """删除uid函数_异步
-        """
+    async def fun_uuid_drop_async(
+        self, fun_name: str = "get_uuid", schema: str = "public", result: dict = {}
+    ) -> bool:
+        """删除uid函数_异步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -1691,9 +1881,10 @@ class Database:
             sql = f"DROP FUNCTION {fun_name}();"
         return await self.execute_async(sql=sql, result=result)
 
-    async def funs_get_async(self, fun_name: str = "", schema: str = "", result: dict = {}) -> bool:
-        """函数列表获取_异步
-        """
+    async def funs_get_async(
+        self, fun_name: str = "", schema: str = "", result: dict = {}
+    ) -> bool:
+        """函数列表获取_异步"""
         if not schema:
             schema = self.schema
         if self.genre == "mysql":
@@ -1706,24 +1897,34 @@ class Database:
 
         return await self.execute_async(sql=sql, result=result)
 
-    async def index_create_async(self, table_name: str, fields_name: str, schema: str = "", index_type: str = "", index_name: str = "", result: dict = {}) -> bool:
+    async def index_create_async(
+        self,
+        table_name: str,
+        fields_name: str,
+        schema: str = "",
+        index_type: str = "",
+        index_name: str = "",
+        result: dict = {},
+    ) -> bool:
         """创建索引_异步
         index_type---UNIQUE   空为INDEX
         """
         if not schema:
             schema = self.schema
         if not index_name:
-            index_name = f'{fields_name}_index'
+            index_name = f"{fields_name}_index"
         if self.genre == "mysql":
             pass
         else:
             sql = f"CREATE {index_type} INDEX {index_name} ON {schema}.{table_name} ({fields_name});"
         return await self.execute_async(sql=sql, result=result)
 
-    async def extension_create_async(self, extname: str,  schema: str = "", result: dict = {}) -> bool:
+    async def extension_create_async(
+        self, extname: str, schema: str = "", result: dict = {}
+    ) -> bool:
         """创建扩展_异步
-            不存在则创建 存在则无视
-            extname:扩展名  例---> ltree
+        不存在则创建 存在则无视
+        extname:扩展名  例---> ltree
         """
         if self.genre == "mysql":
             pass
@@ -1731,10 +1932,10 @@ class Database:
             sql = f"CREATE EXTENSION IF NOT EXISTS {extname};"
         return await self.execute_async(sql=sql, result=result)
 
-    async def extensions_get_async(self, extname: str,  result: dict = {}) -> bool:
+    async def extensions_get_async(self, extname: str, result: dict = {}) -> bool:
         """扩展列表获取_异步
-            不存在则创建 存在则无视
-            extname:扩展名  例---> ltree
+        不存在则创建 存在则无视
+        extname:扩展名  例---> ltree
         """
         if self.genre == "mysql":
             pass
@@ -1773,7 +1974,7 @@ async def main():
     # print(result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # 下面这个是格式模板
     json = {
         "mysql": {
@@ -1781,15 +1982,14 @@ if __name__ == '__main__':
             "password": "123456",
             "pool": True,
             "debug": True,
-
         },
         "postgreSQL": {
             "user": "tianna",
             "database": "tianna",
             "password": "zl2565809",
             "schema": "tianna",
-            "debug": True
-        }
+            "debug": True,
+        },
     }
     # asyncio.run(main())
 
@@ -1798,5 +1998,4 @@ if __name__ == '__main__':
     bd = r"LIMIT([\s]+)([\d]+)(,)*[\s]+[\d]+"
     bd = r"LIMIT([\s]+)([\d]+)(,*)([\s]*)([\d]*)"
 
-    print(replace_text(
-        sql, bd, ""))
+    print(replace_text(sql, bd, ""))
