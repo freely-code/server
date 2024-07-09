@@ -1,6 +1,8 @@
-import inspect, json
+import inspect
+import json
 from datetime import datetime
 import os
+
 
 def auto_api(func):
     file_path = inspect.getfile(func)
@@ -10,6 +12,7 @@ def auto_api(func):
     tip = ""
     doc_path = ""
     doc_name = ""
+    method = ""
     params = ""
     example = {}
     for doc in docs:
@@ -24,12 +27,13 @@ def auto_api(func):
         else:
             if not doc:
                 continue
-            print(doc)
             if doc[-1] == ":":
                 tip = doc
                 continue
             else:
-                if tip == "Path:":
+                if tip == "Method:":
+                    method = doc
+                elif tip == "Path:":
                     tmp_list = doc.split("/")
                     doc_name = tmp_list[-1]
                     doc = doc.replace("/" + doc_name, "")
@@ -40,28 +44,36 @@ def auto_api(func):
                     tmp[0] = tmp[0].replace(")", "")
                     val = tmp[0].split(" ")
                     if "," in val[1]:
-                        val[1] = val[1].replace(",", "")
+                        val[1] = val[1].split(",")[0]
                         params += f"\n|{val[0]}|{val[1]}|否|{tmp[1]}|"
                     else:
                         params += f"\n|{val[0]}|{val[1]}|是|{tmp[1]}|"
                     example[f"{val[0]}"] = ""
 
-    with open("template_api.md", "r", encoding="utf-8") as f:
+    with open("./tools/template_api.md", "r", encoding="utf-8") as f:
         template = f.read()
 
     template = template.replace("^请求地址^", api_url)
-    template = template.replace("^请求方式^", "POST")
+    template = template.replace("^请求方式^", method)
     template = template.replace("^描述信息^", description)
     template = template.replace(
         "^更新时间^", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     )
-    template = template.replace(
-        "^请求参数^", f"|名称|类型|必填|说明|\n|-|-|:-:|-|{params}"
-    )
-    template = template.replace(
-        "^请求示例^",
-        f"```json\n{json.dumps(example,indent=4, ensure_ascii=False)}\n```",
-    )
+    if params:
+        template = template.replace(
+            "^请求参数^",
+            f"\n#### 请求参数\n|名称|类型|必填|说明|\n|-|:-:|:-:|-|{params}",
+        )
+    else:
+        template = template.replace("^请求参数^", "")
+
+    if example:
+        template = template.replace(
+            "^请求示例^",
+            f"\n#### 请求示例\n```json\n{json.dumps(example,indent=4, ensure_ascii=False)}\n```",
+        )
+    else:
+        template = template.replace("^请求示例^", "")
     os.makedirs(doc_path, exist_ok=True)
 
     with open(f"{doc_path}/{doc_name}.md", "w", encoding="utf-8") as f:
