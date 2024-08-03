@@ -9,22 +9,22 @@ from urllib.parse import quote
 
 
 class Apifox:
-    def __init__(self, project,team="", access_token="", phone="", password=""):
+    def __init__(self, project,team="", token="", phone="", password=""):
         """apifox初始化函数,用户ID与用户token为一对,phone与password为一对,两者二选一,推荐使用第一种方式,使用手机号登录后会返回用户ID和token,建议保存下来下次登录使用
 
         Args:
             project (str): 项目,可以填项目ID或项目名称,为名称时,项目不存在会自动创建.
             team (str): 项目,可以填项目ID或项目名称,为名称时,项目不存在会自动创建.
             user_id (str, optional): 用户ID. Defaults to "".
-            access_token (str, optional): 用户token. Defaults to "".
+            token (str, optional): 用户token. Defaults to "".
             phone (str, optional): 手机号. Defaults to "".
             password (str, optional): 密码. Defaults to "".
         """
 
         self.project_id = ""
-        if access_token:
+        if token:
             self.headers = {"Host": "api.apifox.com","x-client-version":"2.6.8-alpha.1"}
-            self.headers["Authorization"] = access_token
+            self.headers["Authorization"] = token
             success, data = self.set_project_id(project,team)
             if not success:
                 raise Exception(f"设置项目失败,{data}")
@@ -82,8 +82,8 @@ class Apifox:
             return False
 
         self.user_id = data["data"]["userId"]
-        self.access_token = data["data"]["accessToken"]
-        self.headers["Authorization"] = self.access_token
+        self.token = data["data"]["accessToken"]
+        self.headers["Authorization"] = self.token
         return True
 
     def set_project_id(self, project="",team=""):
@@ -120,6 +120,7 @@ class Apifox:
                 return success, data
 
             self.project_id = data["id"]
+            self.headers["X-Project-Id"]=str(self.project_id )
             return success, data
 
     def get_user_info(self):
@@ -397,7 +398,6 @@ class Apifox:
 
             base_url[id] = base_urls[i]["baseUrl"]
             base_urls[i]["id"] = id
-
         if need_add:
             success, data = self.create_environment_servers(env_ser_id, data["servers"])
             if not success:
@@ -455,6 +455,19 @@ class Apifox:
             {"id":4933615,"servers":[{"name":"默认服务","id":"default"},{"name":"ok1","id":"8c656dc2-6ef5-45cb-a628-e8f90fc17f75"},{"name":"测试a","id":"075dccce-02f4-4536-9343-54b81cfcbf99"},{"name":"hao","id":"2aca706f-0a91-4781-ac42-4ad309a8df04"}]}
 
         """
+        success,data=self.get_api_folders()
+        if not success:
+            return success, data
+        if len(data)==1:
+            success, data =self.create_folder("临时")
+            if not success:
+                return success, data
+            folder_id = data["id"]
+
+            
+            
+
+
         url = f"https://api.apifox.com/api/v1/project-setting/{env_ser_id}?locale=zh-CN"
         json_data = {"id": env_ser_id}
         if servers:
@@ -465,6 +478,8 @@ class Apifox:
         else:
             return False, "参数错误"
         success, data = self.__request(url, json=json_data, method="PUT")
+        if folder_id:
+            success, data=self.delete_folders(folder_id)
         return success, data
 
     def delete_environment(self, env_id):
@@ -580,9 +595,10 @@ class Apifox:
                 val = tmp[0].split(" ")
                 if "," in val[1]:
                     val[1] = val[1].split(",")[0]
-                    temp=tmp[1].split("&")
-                    tmp[1]=temp[0]
-                    mock=temp[1].replace('"',"")
+                    if "&" in tmp[1]:
+                        temp=tmp[1].split("&")
+                        tmp[1]=temp[0]
+                        mock=temp[1].replace('"',"")
                 else:
                     data["jsonSchema"]["required"].append(val[0])
                 
