@@ -9,11 +9,12 @@ from urllib.parse import quote
 
 
 class Apifox:
-    def __init__(self, project, access_token="", phone="", password=""):
+    def __init__(self, project,team="", access_token="", phone="", password=""):
         """apifox初始化函数,用户ID与用户token为一对,phone与password为一对,两者二选一,推荐使用第一种方式,使用手机号登录后会返回用户ID和token,建议保存下来下次登录使用
 
         Args:
             project (str): 项目,可以填项目ID或项目名称,为名称时,项目不存在会自动创建.
+            team (str): 项目,可以填项目ID或项目名称,为名称时,项目不存在会自动创建.
             user_id (str, optional): 用户ID. Defaults to "".
             access_token (str, optional): 用户token. Defaults to "".
             phone (str, optional): 手机号. Defaults to "".
@@ -24,7 +25,7 @@ class Apifox:
         if access_token:
             self.headers = {"Host": "api.apifox.com","x-client-version":"2.6.8-alpha.1"}
             self.headers["Authorization"] = access_token
-            success, data = self.set_project_id(project)
+            success, data = self.set_project_id(project,team)
             if not success:
                 raise Exception(f"设置项目失败,{data}")
             self.create_var()
@@ -32,7 +33,7 @@ class Apifox:
         if phone and password:
             if not self.login(phone, password):
                 raise Exception("登录失败")
-            success, data = self.set_project_id(project)
+            success, data = self.set_project_id(project,team)
             if not success:
                 raise Exception(f"设置项目失败,{data}")
             self.create_var()
@@ -85,7 +86,7 @@ class Apifox:
         self.headers["Authorization"] = self.access_token
         return True
 
-    def set_project_id(self, project=""):
+    def set_project_id(self, project="",team=""):
         """设置项目
 
         Args:
@@ -114,7 +115,7 @@ class Apifox:
                     self.project_id = item["id"]
                     return True, "设置项目成功"
 
-            success, data = self.create_project(project)
+            success, data = self.create_project(project,team)
             if not success:
                 return success, data
 
@@ -273,21 +274,36 @@ class Apifox:
         data = f"name={quote(name)}&id={team_id}"
         return self.__request(url, method="PUT", data=data)
 
-    def create_project(self, name, team_id=""):
+    def create_project(self, name, team=""):
         """创建项目
 
         Args:
             name (str): 项目名称
-            team_id (str): 团队ID,如果不填,则会根据项目名称自动创建一个团队
+            team (str): 团队ID,如果不填,则会根据项目名称自动创建一个团队
 
         Returns:
             _type_: 成功返回项目信息,失败返回false并打印错误
         """
-        if not team_id:
-            success, data = self.create_team(f"{name}团队")
+        if team == "":
+            team=f"{name}团队"
+        try:
+            if int(team):
+                team_id = str(team)
+        except Exception:
+            is_find=False
+            success, data = self.get_teams()
             if not success:
                 return success, data
-            team_id = data["id"]
+            for item in data:
+                if item["name"] == team:
+                    team_id = item["id"]
+                    is_find=True
+                    break
+            if not is_find:
+                success, data = self.create_team(item)
+                if not success:
+                    return success, data
+                team_id = data["id"]
 
         success, data = self.get_user_info()
         if not success:

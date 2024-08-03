@@ -13,6 +13,7 @@ from tools.database import Database
 from tools.system import log, port_check
 from tools.ende import token_handle, guid
 from tools.redis import Redis
+from tools.apifox import Apifox
 from typing import Optional
 
 logging.getLogger("tornado.access").disabled = True
@@ -562,11 +563,7 @@ class MainHandler(web.RequestHandler):
         self.finish()
 
 
-def make_app(
-    routes: list[dict] = config_model["routes"],
-    db: Optional[Database] = None,
-    redis: Optional[Redis] = None,
-):
+def make_app(routes: list[dict] = config_model["routes"], db: Optional[Database] = None, redis: Optional[Redis] = None,auto_api: Optional[Apifox] = None):
     # 初始化应用
     url_specs = []
     # 遍历路由列表
@@ -581,7 +578,8 @@ def make_app(
         if not handler_url:
             if "Handler" not in class_str:
                 continue
-            handler_url = "/" + class_str.replace("Handler", "").lower() + "/([^/]*)"
+            handler_url = "/" + \
+                class_str.replace("Handler", "").lower()+"/([^/]*)"
         try:
             # 将路由字符串转换为类
             handler_class = globals()[class_str]
@@ -590,16 +588,11 @@ def make_app(
         # 获取路由名称,不存在时使用类名
         handler_name = route.get("name", class_str)
         # 添加路由到列表
-        url_specs.append(
-            routing.URLSpec(
-                handler_url,
-                handler_class,
-                {"name": handler_name, "db": db, "redis": redis},
-            )
-        )
+        url_specs.append(routing.URLSpec(
+            handler_url, handler_class, {"name": handler_name, "db": db, "redis": redis,"auto_api":auto_api}))
     if not url_specs:
         # 如果路由列表为空，则使用默认路由
-        return make_app(db=db, redis=redis)
+        return make_app(db=db, redis=redis,auto_api=auto_api)
         # 添加路由
     return web.Application(url_specs)
 
@@ -639,7 +632,8 @@ if __name__ == "__main__":
         loop.run_sync(lambda: init(db))
 
         # 初始化应用
-        app = make_app(routes=routes, db=db, redis=redis)
+        auto_api= Apifox( project="服务器",team="天纳", token="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NjAxMTU2LCJ0cyI6IjhiYjUxNDUzNGE3MDEwODEiLCJpYXQiOjE3MjI0MDg4NDI2MzB9.xY0pj4fcJNegFmjzS9erhqWq40It2cV6eBUQIDSW-NI",)
+
         # 监听服务端口
         app.listen(port)
         log(f"http://localhost:{port}")
