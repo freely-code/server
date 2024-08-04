@@ -546,6 +546,7 @@ class Apifox:
         return self.__request(url, method="DELETE")
 
     def auto_api(self, func):
+        
         # 当前被执行的文件路径 'D:\\new_project\\新建文件夹\\apifox.py'
         file_path = inspect.getfile(func)
         # 取文件名,不带后缀 apifox
@@ -588,17 +589,21 @@ class Apifox:
                     folder_id = folder_data["id"]
                 continue
             if key == "Args":
-                mock=""
+                mock=description=""
                 tmp = item.split(":")
                 tmp[0] = tmp[0].replace("(", "")
                 tmp[0] = tmp[0].replace(")", "")
                 val = tmp[0].split(" ")
                 if "," in val[1]:
-                    val[1] = val[1].split(",")[0]
+                    val[1] = val[1].split(",")[0].strip()
                     if "&" in tmp[1]:
                         temp=tmp[1].split("&")
-                        tmp[1]=temp[0]
-                        mock=temp[1].replace('"',"")
+                        tmp[1]=temp[0].strip()
+                        mock=temp[1].replace('"',"").strip()
+                    if "|" in tmp[1]:
+                        temp=tmp[1].split("|")
+                        tmp[1]=temp[0].strip()
+                        description=temp[1].replace('"',"").strip()
                 else:
                     data["jsonSchema"]["required"].append(val[0])
                 
@@ -616,6 +621,7 @@ class Apifox:
                     val[1] = "null"
                 params[val[0]]={"title":tmp[1]}
                 params[val[0]]["mock"]={"mock":mock}
+                params[val[0]]["description"]=description
                 params[val[0]]["type"]=val[1]
                 data["jsonSchema"]["x-apifox-orders"].append(val[0])
 
